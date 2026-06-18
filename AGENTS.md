@@ -1,5 +1,9 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# FizX monorepo
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+A self-hosted video conferencing platform (Zoom alternative).
+
+- `frontend/` — Next.js 15 + TypeScript + Tailwind + shadcn/ui app. See `frontend/AGENTS.md` for Next.js-version-specific notes.
+- `backend/` — Django 5 + DRF + Channels API. Apps live under `backend/apps/*`.
+- `infra/` — coturn, LiveKit, and nginx configuration used by the root `docker-compose.yml`.
+
+Run the whole stack with `docker compose up` from the repo root.

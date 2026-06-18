@@ -1,0 +1,31 @@
+# API keys are intentionally NOT set here - they're passed via the LIVEKIT_KEYS
+# environment variable in docker-compose.yml so secrets never get committed to
+# this file.
+
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+  # false because this is a self-hosted/LAN deployment behind no cloud load
+  # balancer. With this true, LiveKit queries a public STUN server and
+  # advertises whatever public IP it discovers (e.g. your ISP's NAT IP) as
+  # an ICE candidate - nothing routes those packets back to this host, so
+  # every client repeatedly fails ICE and looks like a periodic disconnect.
+  # The real address to advertise is set explicitly via NODE_IP below.
+  use_external_ip: false
+
+# livekit runs on network_mode: host (see docker-compose.yml), so it reaches
+# redis via the port published to 127.0.0.1 rather than the "redis" Docker
+# DNS name, which only resolves on the bridge network it's no longer part of.
+redis:
+  address: 127.0.0.1:6379
+  db: 3
+
+room:
+  auto_create: true
+  empty_timeout: 300
+  departure_timeout: 20
+
+logging:
+  level: info
