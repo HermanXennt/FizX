@@ -48,6 +48,7 @@ export interface JoinMeetingResponse {
 export interface CreateInstantMeetingPayload {
   title?: string;
   workspace?: string;
+  participant_ids?: string[];
 }
 
 export interface ScheduleMeetingPayload {

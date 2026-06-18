@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Bell, Plus } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Search, Bell, Plus, Settings, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +14,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useCreateInstantMeeting } from "@/hooks/use-meetings";
 import { useNotifications } from "@/hooks/use-notifications";
+import { useLogout } from "@/hooks/use-auth";
+import { useAcceptInvitation, useDeclineInvitation } from "@/hooks/use-workspaces";
 import { useAuthStore } from "@/store/auth-store";
+import { presenceDotColor } from "@/lib/presence";
+import { extractErrorMessage } from "@/lib/api-client";
+import type { AppNotification } from "@/types/notification";
+
+type InvitationActionState = "accepted" | "declined" | "error";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -29,22 +38,56 @@ export function Topbar({
   subtitle?: string;
 }) {
   const user = useAuthStore((s) => s.user);
+  const router = useRouter();
   const createInstant = useCreateInstantMeeting();
+  const logout = useLogout();
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [invitationState, setInvitationState] = useState<Record<string, InvitationActionState>>({});
+  const acceptInvitation = useAcceptInvitation();
+  const declineInvitation = useDeclineInvitation();
+
+  function handleNotificationClick(notification: AppNotification) {
+    if (!notification.is_read) markRead(notification.id);
+    const actionUrl = notification.data?.action_url;
+    if (typeof actionUrl === "string") {
+      setNotifOpen(false);
+      router.push(actionUrl);
+    }
+  }
+
+  function handleAcceptInvitation(notification: AppNotification, token: string) {
+    acceptInvitation.mutate(token, {
+      onSuccess: () => {
+        markRead(notification.id);
+        setInvitationState((s) => ({ ...s, [notification.id]: "accepted" }));
+      },
+      onError: () => setInvitationState((s) => ({ ...s, [notification.id]: "error" })),
+    });
+  }
+
+  function handleDeclineInvitation(notification: AppNotification, token: string) {
+    declineInvitation.mutate(token, {
+      onSuccess: () => {
+        markRead(notification.id);
+        setInvitationState((s) => ({ ...s, [notification.id]: "declined" }));
+      },
+      onError: () => setInvitationState((s) => ({ ...s, [notification.id]: "error" })),
+    });
+  }
 
   return (
-    <header className="flex items-center justify-between gap-6 pb-10">
-      <div>
-        <h1 className="text-[28px] font-semibold tracking-tight text-foreground">
+    <header className="flex flex-col gap-4 pb-8 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:pb-10">
+      <div className="min-w-0">
+        <h1 className="truncate text-[22px] font-semibold tracking-tight text-foreground sm:text-[28px]">
           {title ?? `${getGreeting()}, ${user?.first_name || "there"}`}
         </h1>
-        <p className="mt-1.5 text-[15px] text-muted-foreground">
+        <p className="mt-1 text-[13.5px] text-muted-foreground sm:mt-1.5 sm:text-[15px]">
           {subtitle ?? "Here's what's happening across your workspace today."}
         </p>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         <div className="relative hidden md:block">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -84,29 +127,107 @@ export function Topbar({
             {notifications.length === 0 && (
               <p className="px-2 py-4 text-center text-[12.5px] text-muted-foreground">No notifications yet.</p>
             )}
-            {notifications.slice(0, 8).map((n) => (
-              <DropdownMenuItem
-                key={n.id}
-                onClick={() => !n.is_read && markRead(n.id)}
-                className="flex flex-col items-start gap-0.5 rounded-xl py-2"
-              >
-                <span className={`text-[13px] ${n.is_read ? "font-normal text-foreground/70" : "font-medium"}`}>
-                  {n.title}
-                </span>
-                {n.body && <span className="text-[11.5px] text-muted-foreground">{n.body}</span>}
-              </DropdownMenuItem>
-            ))}
+            {notifications.slice(0, 8).map((n) => {
+              const invitationToken =
+                n.type === "workspace_invite" && typeof n.data?.invitation_token === "string"
+                  ? n.data.invitation_token
+                  : null;
+
+              if (invitationToken) {
+                const actioned = invitationState[n.id];
+                return (
+                  <div key={n.id} className="flex flex-col items-start gap-1.5 rounded-xl px-2 py-2">
+                    <span className={`text-[13px] ${n.is_read ? "font-normal text-foreground/70" : "font-medium"}`}>
+                      {n.title}
+                    </span>
+                    {n.body && <span className="text-[11.5px] text-muted-foreground">{n.body}</span>}
+                    {actioned === "accepted" && (
+                      <span className="text-[11.5px] font-medium text-emerald-600">Joined</span>
+                    )}
+                    {actioned === "declined" && (
+                      <span className="text-[11.5px] font-medium text-muted-foreground">Declined</span>
+                    )}
+                    {actioned === "error" && (
+                      <span className="text-[11.5px] text-red-600">
+                        {extractErrorMessage(acceptInvitation.error ?? declineInvitation.error)}
+                      </span>
+                    )}
+                    {!actioned && (
+                      <div className="flex gap-2 pt-0.5">
+                        <button
+                          onClick={() => handleAcceptInvitation(n, invitationToken)}
+                          disabled={acceptInvitation.isPending || declineInvitation.isPending}
+                          className="rounded-full bg-primary px-3 py-1 text-[12px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => handleDeclineInvitation(n, invitationToken)}
+                          disabled={acceptInvitation.isPending || declineInvitation.isPending}
+                          className="rounded-full bg-secondary px-3 py-1 text-[12px] font-medium text-foreground/80 hover:bg-secondary/80 disabled:opacity-60"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              return (
+                <DropdownMenuItem
+                  key={n.id}
+                  onClick={() => handleNotificationClick(n)}
+                  className="flex flex-col items-start gap-0.5 rounded-xl py-2"
+                >
+                  <span className={`text-[13px] ${n.is_read ? "font-normal text-foreground/70" : "font-medium"}`}>
+                    {n.title}
+                  </span>
+                  {n.body && <span className="text-[11.5px] text-muted-foreground">{n.body}</span>}
+                </DropdownMenuItem>
+              );
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
 
         <Button
           onClick={() => createInstant.mutate({})}
           disabled={createInstant.isPending}
-          className="h-11 rounded-full bg-primary px-5 text-[14px] font-medium text-primary-foreground shadow-soft hover:bg-primary/90"
+          className="h-11 rounded-full bg-primary px-3.5 text-[14px] font-medium text-primary-foreground shadow-soft hover:bg-primary/90 sm:px-5"
         >
           <Plus className="h-4 w-4" strokeWidth={2.2} />
-          {createInstant.isPending ? "Starting…" : "New Meeting"}
+          <span className="hidden sm:inline">{createInstant.isPending ? "Starting…" : "New Meeting"}</span>
         </Button>
+
+        {/* Sidebar (and its account menu) is hidden below lg, so this fills
+            in the only way to reach settings/logout on phone and tablet. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1d1d1f] text-[13px] font-semibold text-white lg:hidden">
+                {user?.initials ?? "?"}
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white"
+                  style={{ backgroundColor: presenceDotColor[user?.presence_status ?? "offline"] }}
+                />
+              </button>
+            }
+          />
+          <DropdownMenuContent align="end" className="w-48 rounded-2xl p-1.5">
+            <div className="px-2 py-1.5">
+              <p className="truncate text-[13px] font-medium">{user?.full_name}</p>
+              <p className="truncate text-[11.5px] text-muted-foreground">{user?.phone_number}</p>
+            </div>
+            <DropdownMenuItem render={<Link href="/settings" />} className="rounded-xl py-1.5 text-[13px]">
+              <Settings className="h-3.5 w-3.5" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => logout.mutate()} className="rounded-xl py-1.5 text-[13px]">
+              <LogOut className="h-3.5 w-3.5" />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

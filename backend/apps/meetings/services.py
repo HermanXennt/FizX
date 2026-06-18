@@ -23,7 +23,9 @@ class MeetingService:
         self.participant_repo = participant_repo or MeetingParticipantRepository()
 
     @transaction.atomic
-    def create_instant_meeting(self, *, host, workspace=None, title: str = "Instant Meeting") -> Meeting:
+    def create_instant_meeting(
+        self, *, host, workspace=None, title: str = "Instant Meeting", participant_ids: list | None = None
+    ) -> Meeting:
         meeting = Meeting.objects.create(
             host=host,
             workspace=workspace,
@@ -40,7 +42,30 @@ class MeetingService:
             status=ParticipantStatus.ADMITTED,
             joined_at=timezone.now(),
         )
+        if participant_ids:
+            self._invite_participants(meeting=meeting, host=host, user_ids=participant_ids)
         return meeting
+
+    def _invite_participants(self, *, meeting: Meeting, host, user_ids: list) -> None:
+        from apps.notifications.models import NotificationType
+        from apps.notifications.services import NotificationService
+        from apps.users.repositories import UserRepository
+
+        invitees = UserRepository().get_queryset().filter(id__in=user_ids).exclude(id=host.id)
+        notification_service = NotificationService()
+        for invitee in invitees:
+            MeetingParticipant.objects.get_or_create(
+                meeting=meeting,
+                user=invitee,
+                defaults={"role": ParticipantRole.PARTICIPANT, "status": ParticipantStatus.INVITED},
+            )
+            notification_service.create(
+                recipient=invitee,
+                type=NotificationType.MEETING_INVITE,
+                title=f"{host.full_name} started a call",
+                body=meeting.title,
+                data={"meeting_id": str(meeting.id), "action_url": f"/call/{meeting.id}"},
+            )
 
     @transaction.atomic
     def schedule_meeting(

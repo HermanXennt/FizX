@@ -91,7 +91,9 @@ export function ChatLauncher() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-8 right-8 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-float transition-transform duration-200 hover:scale-105 active:scale-95"
+        // bottom-24 clears the fixed MobileTabBar below lg; at lg+ there's
+        // no tab bar, so it drops back down to the usual corner position.
+        className="fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-float transition-transform duration-200 hover:scale-105 active:scale-95 sm:right-8 lg:bottom-8"
       >
         <MessageSquare className="h-5 w-5" strokeWidth={1.9} />
       </button>

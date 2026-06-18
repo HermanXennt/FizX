@@ -1,9 +1,17 @@
-from django.contrib.auth import password_validation
+import re
+
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import PresenceStatus, User
-from .repositories import UserRepository
+
+PHONE_NUMBER_RE = re.compile(r"^\d{7,15}$")
+
+
+def normalize_phone_number(value: str) -> str:
+    digits = re.sub(r"[^\d]", "", value)
+    if not PHONE_NUMBER_RE.match(digits):
+        raise serializers.ValidationError("Enter a valid phone number, digits only (7-15 digits).")
+    return digits
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -15,19 +23,17 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = (
             "id",
-            "email",
+            "phone_number",
             "first_name",
             "last_name",
             "full_name",
             "initials",
             "avatar_url",
-            "is_verified",
             "presence_status",
             "timezone",
-            "notification_preferences",
             "created_at",
         )
-        read_only_fields = ("id", "email", "is_verified", "created_at")
+        read_only_fields = ("id", "phone_number", "created_at")
 
     def get_avatar_url(self, obj: User) -> str | None:
         if not obj.avatar:
@@ -56,67 +62,24 @@ class PublicUserSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(url) if request else url
 
 
-class RegisterSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True, trim_whitespace=False)
+class RequestOtpSerializer(serializers.Serializer):
+    phone_number = serializers.CharField()
+
+    def validate_phone_number(self, value: str) -> str:
+        return normalize_phone_number(value)
+
+
+class VerifyOtpSerializer(serializers.Serializer):
+    phone_number = serializers.CharField()
+    code = serializers.CharField(max_length=10)
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
-    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
 
-    def validate_email(self, value: str) -> str:
-        if UserRepository().email_exists(value):
-            raise serializers.ValidationError("An account with this email already exists.")
-        return value.lower()
-
-    def validate_password(self, value: str) -> str:
-        password_validation.validate_password(value)
-        return value
-
-
-class FizXTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """Extends SimpleJWT's serializer to embed the user profile in the login response."""
-
-    username_field = User.USERNAME_FIELD
-
-    def validate(self, attrs):
-        data = super().validate(attrs)
-        data["user"] = UserSerializer(self.user, context=self.context).data
-        return data
+    def validate_phone_number(self, value: str) -> str:
+        return normalize_phone_number(value)
 
 
 class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField()
-
-
-class PasswordResetRequestSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-
-
-class PasswordResetConfirmSerializer(serializers.Serializer):
-    uid = serializers.CharField()
-    token = serializers.CharField()
-    new_password = serializers.CharField(write_only=True, trim_whitespace=False)
-
-    def validate_new_password(self, value: str) -> str:
-        password_validation.validate_password(value)
-        return value
-
-
-class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(write_only=True, trim_whitespace=False)
-    new_password = serializers.CharField(write_only=True, trim_whitespace=False)
-
-    def validate_new_password(self, value: str) -> str:
-        password_validation.validate_password(value)
-        return value
-
-
-class EmailVerificationConfirmSerializer(serializers.Serializer):
-    uid = serializers.CharField()
-    token = serializers.CharField()
-
-
-class GoogleLoginSerializer(serializers.Serializer):
-    id_token = serializers.CharField()
 
 
 class AvatarUploadSerializer(serializers.Serializer):
@@ -139,4 +102,4 @@ class PresenceUpdateSerializer(serializers.Serializer):
 class UpdateProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ("first_name", "last_name", "timezone", "notification_preferences")
+        fields = ("first_name", "last_name", "timezone")

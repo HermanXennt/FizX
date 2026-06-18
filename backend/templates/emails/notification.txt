@@ -1,6 +1,0 @@
-{{ title }}
-
-{{ body }}
-{% if action_url %}
-{{ action_url }}
-{% endif %}

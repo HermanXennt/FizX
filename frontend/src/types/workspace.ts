@@ -20,13 +20,14 @@ export interface Workspace {
 export interface WorkspaceMember {
   id: string;
   user: PublicUser;
+  phone_number: string;
   role: WorkspaceRole;
   created_at: string;
 }
 
 export interface Invitation {
   id: string;
-  email: string;
+  phone_number: string;
   role: WorkspaceRole;
   status: InvitationStatus;
   invited_by: PublicUser;

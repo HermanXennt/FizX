@@ -13,7 +13,7 @@ export default function AnalyticsPage() {
     return (
       <>
         <Topbar title="Analytics" subtitle="Meeting statistics for your workspace." />
-        <div className="rounded-[28px] border border-black/5 bg-white p-10 text-center shadow-soft">
+        <div className="rounded-[28px] border border-black/5 bg-white p-6 sm:p-10 text-center shadow-soft">
           <p className="text-[14px] text-muted-foreground">Create a workspace to see analytics.</p>
         </div>
       </>
@@ -27,19 +27,19 @@ export default function AnalyticsPage() {
       <Topbar title="Analytics" subtitle={`Meeting statistics for ${workspace.name}.`} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft">
+        <div className="rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft">
           <p className="text-[28px] font-semibold tracking-tight text-foreground">
             {overview?.total_meetings ?? 0}
           </p>
           <p className="text-[13px] text-muted-foreground">Total meetings</p>
         </div>
-        <div className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft">
+        <div className="rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft">
           <p className="text-[28px] font-semibold tracking-tight text-foreground">
             {overview?.total_meeting_minutes ?? 0}m
           </p>
           <p className="text-[13px] text-muted-foreground">Total meeting minutes</p>
         </div>
-        <div className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft">
+        <div className="rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft">
           <p className="text-[28px] font-semibold tracking-tight text-foreground">
             {overview?.avg_meeting_duration_minutes ?? 0}m
           </p>
@@ -48,7 +48,7 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft lg:col-span-2">
+        <div className="rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft lg:col-span-2">
           <h3 className="mb-5 text-[16px] font-semibold tracking-tight text-foreground">Meetings (last 30 days)</h3>
           {!isLoading && overview?.meetings_by_day.length === 0 ? (
             <p className="text-[13.5px] text-muted-foreground">No meeting activity yet.</p>
@@ -66,7 +66,7 @@ export default function AnalyticsPage() {
           )}
         </div>
 
-        <div className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft">
+        <div className="rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft">
           <h3 className="mb-4 text-[16px] font-semibold tracking-tight text-foreground">Top hosts</h3>
           <div className="flex flex-col gap-3">
             {overview?.top_hosts.map((h) => (

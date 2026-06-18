@@ -1,3 +1,5 @@
+from django.db import models
+
 from apps.core.repositories import BaseRepository
 
 from .models import Invitation, InvitationStatus, Workspace, WorkspaceMember, WorkspaceRole
@@ -19,8 +21,15 @@ class WorkspaceMemberRepository(BaseRepository[WorkspaceMember]):
     def owners(self, workspace):
         return self.get_queryset().filter(workspace=workspace, role=WorkspaceRole.OWNER)
 
-    def for_workspace(self, workspace):
-        return self.get_queryset().filter(workspace=workspace).select_related("user")
+    def for_workspace(self, workspace, search: str = ""):
+        queryset = self.get_queryset().filter(workspace=workspace).select_related("user")
+        if search:
+            queryset = queryset.filter(
+                models.Q(user__first_name__icontains=search)
+                | models.Q(user__last_name__icontains=search)
+                | models.Q(user__phone_number__icontains=search)
+            )
+        return queryset
 
 
 class InvitationRepository(BaseRepository[Invitation]):
@@ -32,7 +41,7 @@ class InvitationRepository(BaseRepository[Invitation]):
     def pending_for_workspace(self, workspace):
         return self.get_queryset().filter(workspace=workspace, status=InvitationStatus.PENDING)
 
-    def pending_for_email(self, workspace, email: str) -> Invitation | None:
+    def pending_for_phone_number(self, workspace, phone_number: str) -> Invitation | None:
         return self.get_queryset().filter(
-            workspace=workspace, email__iexact=email, status=InvitationStatus.PENDING
+            workspace=workspace, phone_number=phone_number, status=InvitationStatus.PENDING
         ).first()

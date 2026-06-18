@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>WhatsApp OTP service</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f4f4f5; margin: 0; padding: 40px 16px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+  .card { background: #fff; border-radius: 20px; padding: 28px; max-width: 380px; width: 100%; box-shadow: 0 8px 30px rgba(0,0,0,0.06); }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { color: #71717a; font-size: 13px; margin: 0 0 16px; }
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; padding: 4px 10px; border-radius: 999px; margin-bottom: 16px; }
+  .status.qr { background: #fef3c7; color: #92400e; }
+  .status.connecting { background: #e0e7ff; color: #3730a3; }
+  .status.open { background: #d1fae5; color: #065f46; }
+  .status.closed { background: #fee2e2; color: #991b1b; }
+  img.qr-code { width: 100%; border-radius: 12px; }
+  input { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: 1px solid #d4d4d8; font-size: 14px; margin-bottom: 10px; }
+  button { width: 100%; padding: 11px; border-radius: 10px; border: none; background: #111113; color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .msg { margin-top: 10px; font-size: 13px; }
+  .msg.ok { color: #065f46; }
+  .msg.err { color: #991b1b; }
+</style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>1. Link a WhatsApp number</h1>
+    <p class="sub">Scan with WhatsApp &rarr; Linked devices &rarr; Link a device</p>
+    <div id="status" class="status connecting">connecting…</div>
+    <div id="qr-wrap"></div>
+  </div>
+
+  <div class="card">
+    <h1>2. Send a test OTP</h1>
+    <p class="sub">API key (same value as this service's API_KEY env var - kept only in this browser tab)</p>
+    <input id="api-key" type="password" placeholder="API key" />
+    <p class="sub">International format, digits only (e.g. 15551234567)</p>
+    <input id="phone" placeholder="15551234567" />
+    <button id="send-btn">Send OTP</button>
+    <div id="send-msg" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h1>3. Verify the code</h1>
+    <input id="code" placeholder="6-digit code" maxlength="6" />
+    <button id="verify-btn">Verify</button>
+    <div id="verify-msg" class="msg"></div>
+  </div>
+
+<script>
+  const statusEl = document.getElementById('status');
+  const qrWrap = document.getElementById('qr-wrap');
+  const apiKeyEl = document.getElementById('api-key');
+  apiKeyEl.value = localStorage.getItem('wa-otp-api-key') || '';
+  apiKeyEl.addEventListener('input', () => localStorage.setItem('wa-otp-api-key', apiKeyEl.value));
+
+  async function refreshStatus() {
+    const res = await fetch('/api/status');
+    const { status } = await res.json();
+    statusEl.textContent = status;
+    statusEl.className = 'status ' + status;
+
+    if (status === 'qr') {
+      const qrRes = await fetch('/api/qr');
+      if (qrRes.ok) {
+        const { qr } = await qrRes.json();
+        qrWrap.innerHTML = '<img class="qr-code" src="' + qr + '" alt="WhatsApp QR code" />';
+      }
+    } else if (status === 'open') {
+      qrWrap.innerHTML = '<p style="color:#065f46;font-size:13px;">Connected - ready to send.</p>';
+    } else {
+      qrWrap.innerHTML = '';
+    }
+  }
+  setInterval(refreshStatus, 3000);
+  refreshStatus();
+
+  document.getElementById('send-btn').addEventListener('click', async () => {
+    const phone = document.getElementById('phone').value.trim();
+    const msgEl = document.getElementById('send-msg');
+    msgEl.textContent = '';
+    msgEl.className = 'msg';
+    if (!phone) return;
+    const btn = document.getElementById('send-btn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKeyEl.value },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        msgEl.textContent = 'OTP sent.';
+        msgEl.className = 'msg ok';
+      } else {
+        msgEl.textContent = data.error || 'Failed to send.';
+        msgEl.className = 'msg err';
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('verify-btn').addEventListener('click', async () => {
+    const phone = document.getElementById('phone').value.trim();
+    const code = document.getElementById('code').value.trim();
+    const msgEl = document.getElementById('verify-msg');
+    msgEl.textContent = '';
+    msgEl.className = 'msg';
+    if (!phone || !code) {
+      msgEl.textContent = 'Enter the phone number above and the code.';
+      msgEl.className = 'msg err';
+      return;
+    }
+    const res = await fetch('/api/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKeyEl.value },
+      body: JSON.stringify({ phone, code }),
+    });
+    const data = await res.json();
+    if (data.valid) {
+      msgEl.textContent = 'Verified!';
+      msgEl.className = 'msg ok';
+    } else {
+      msgEl.textContent = 'Invalid (' + data.reason + ')';
+      msgEl.className = 'msg err';
+    }
+  });
+</script>
+</body>
+</html>

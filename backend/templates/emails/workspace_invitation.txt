@@ -1,6 +1,0 @@
-Hi there,
-
-{{ inviter_name }} invited you to join {{ workspace_name }} on FizX as a {{ role }}.
-
-Accept your invitation:
-{{ invitation_url }}

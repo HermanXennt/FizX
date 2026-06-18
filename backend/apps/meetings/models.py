@@ -106,7 +106,7 @@ class MeetingParticipant(BaseModel):
         ordering = ["-role", "created_at"]
 
     def __str__(self) -> str:
-        return f"{self.user.email} in {self.meeting.room_name} ({self.status})"
+        return f"{self.user.phone_number} in {self.meeting.room_name} ({self.status})"
 
     @property
     def livekit_identity(self) -> str:

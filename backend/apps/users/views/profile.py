@@ -5,14 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..serializers import (
-    AvatarUploadSerializer,
-    ChangePasswordSerializer,
-    PresenceUpdateSerializer,
-    UpdateProfileSerializer,
-    UserSerializer,
-)
-from ..services import AuthService, UserService
+from ..serializers import AvatarUploadSerializer, PresenceUpdateSerializer, UpdateProfileSerializer, UserSerializer
+from ..services import UserService
 
 
 class MeView(APIView):
@@ -56,15 +50,3 @@ class PresenceView(APIView):
         serializer.is_valid(raise_exception=True)
         user = UserService().update_presence(user=request.user, **serializer.validated_data)
         return Response(UserSerializer(user, context={"request": request}).data)
-
-
-class ChangePasswordView(APIView):
-    permission_classes = [IsAuthenticated]
-    throttle_scope = "auth-sensitive"
-
-    @extend_schema(request=ChangePasswordSerializer, responses={200: None})
-    def post(self, request):
-        serializer = ChangePasswordSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        AuthService().change_password(user=request.user, **serializer.validated_data)
-        return Response({"detail": "Password updated successfully."})

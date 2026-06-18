@@ -24,7 +24,7 @@ export function UpcomingMeetings() {
   const { data: meetings, isLoading } = useMeetings({ status: "scheduled" });
 
   return (
-    <div className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft">
+    <div className="rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft">
       <div className="mb-5 flex items-center justify-between">
         <h3 className="text-[17px] font-semibold tracking-tight text-foreground">Upcoming Meetings</h3>
         <Link
@@ -49,7 +49,7 @@ export function UpcomingMeetings() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, delay: i * 0.05, ease: "easeOut" }}
-            className="group flex items-center gap-4 border-b border-black/[0.04] py-4 last:border-0 last:pb-0"
+            className="flex items-center gap-4 border-b border-black/[0.04] py-4 last:border-0 last:pb-0"
           >
             <div className="w-16 shrink-0">
               <p className="text-[14px] font-medium text-foreground">{formatTime(meeting.scheduled_start)}</p>
@@ -75,7 +75,7 @@ export function UpcomingMeetings() {
 
             <Link
               href={`/call/${meeting.id}`}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-all duration-200 hover:bg-accent hover:text-foreground group-hover:opacity-100"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-200 hover:bg-accent hover:text-foreground"
             >
               <ArrowUpRight className="h-4 w-4" strokeWidth={2} />
             </Link>

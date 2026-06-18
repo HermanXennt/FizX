@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.users.serializers import PublicUserSerializer
+from apps.users.serializers import PublicUserSerializer, normalize_phone_number
 
 from .models import Invitation, Workspace, WorkspaceMember, WorkspaceRole
 
@@ -50,10 +50,16 @@ class CreateWorkspaceSerializer(serializers.Serializer):
 
 class WorkspaceMemberSerializer(serializers.ModelSerializer):
     user = PublicUserSerializer(read_only=True)
+    # Teammates can see each other's phone number within their own workspace
+    # (e.g. to tell two similarly-named people apart when starting a call) -
+    # PublicUserSerializer itself stays phone-free since it's also used to
+    # represent other participants inside a live meeting, a much wider and
+    # less trusted audience.
+    phone_number = serializers.CharField(source="user.phone_number", read_only=True)
 
     class Meta:
         model = WorkspaceMember
-        fields = ("id", "user", "role", "created_at")
+        fields = ("id", "user", "phone_number", "role", "created_at")
         read_only_fields = fields
 
 
@@ -66,10 +72,13 @@ class InvitationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Invitation
-        fields = ("id", "email", "role", "status", "invited_by", "expires_at", "created_at")
+        fields = ("id", "phone_number", "role", "status", "invited_by", "expires_at", "created_at")
         read_only_fields = fields
 
 
 class CreateInvitationSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    phone_number = serializers.CharField()
     role = serializers.ChoiceField(choices=[WorkspaceRole.ADMIN, WorkspaceRole.MEMBER])
+
+    def validate_phone_number(self, value: str) -> str:
+        return normalize_phone_number(value)

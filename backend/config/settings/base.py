@@ -120,12 +120,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "users.User"
 
-AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 10}},
-    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
-]
+# No password validators - accounts have no usable password at all (see
+# UserManager._create_user); identity is proven by WhatsApp OTP every login.
 
 # ---------------------------------------------------------------------------
 # I18N / TZ
@@ -222,7 +218,6 @@ SIMPLE_JWT = {
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
-    "TOKEN_OBTAIN_SERIALIZER": "apps.users.serializers.FizXTokenObtainPairSerializer",
 }
 
 # ---------------------------------------------------------------------------
@@ -268,23 +263,13 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 # ---------------------------------------------------------------------------
-# Email
+# WhatsApp OTP (separate local service - see /whatsapp-otp at the repo root)
 # ---------------------------------------------------------------------------
 
-EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
-EMAIL_HOST = env("EMAIL_HOST", default="")
-EMAIL_PORT = env.int("EMAIL_PORT", default=587)
-EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
-EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="FizX <no-reply@fizx.app>")
-
-# ---------------------------------------------------------------------------
-# Google OAuth
-# ---------------------------------------------------------------------------
-
-GOOGLE_OAUTH_CLIENT_ID = env("GOOGLE_OAUTH_CLIENT_ID", default="")
-GOOGLE_OAUTH_CLIENT_SECRET = env("GOOGLE_OAUTH_CLIENT_SECRET", default="")
+# host.docker.internal because the service runs standalone on the host, not
+# as a container on this compose network - same pattern as LIVEKIT_HTTP_URL.
+WHATSAPP_OTP_URL = env("WHATSAPP_OTP_URL", default="http://host.docker.internal:3210")
+WHATSAPP_OTP_API_KEY = env("WHATSAPP_OTP_API_KEY", default="")
 
 # ---------------------------------------------------------------------------
 # LiveKit

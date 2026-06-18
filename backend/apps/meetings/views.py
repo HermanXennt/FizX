@@ -86,7 +86,10 @@ class MeetingViewSet(viewsets.ModelViewSet):
 
             workspace = WorkspaceRepository().get_by_id_or_raise(serializer.validated_data["workspace"])
         meeting = MeetingService().create_instant_meeting(
-            host=request.user, workspace=workspace, title=serializer.validated_data["title"]
+            host=request.user,
+            workspace=workspace,
+            title=serializer.validated_data["title"],
+            participant_ids=serializer.validated_data.get("participant_ids"),
         )
         return Response(
             MeetingSerializer(meeting, context=self.get_serializer_context()).data,

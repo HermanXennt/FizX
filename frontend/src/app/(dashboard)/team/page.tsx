@@ -5,6 +5,7 @@ import { UserPlus } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StartCallDialog } from "@/components/dashboard/start-call-dialog";
 import {
   useCreateWorkspace,
   useInviteToWorkspace,
@@ -21,13 +22,13 @@ export default function TeamPage() {
   const { data: invitations } = useWorkspaceInvitations(workspace?.id);
   const createWorkspace = useCreateWorkspace();
   const invite = useInviteToWorkspace(workspace?.id ?? "");
-  const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   if (!workspace) {
     return (
       <>
         <Topbar title="Team" subtitle="Manage members, roles, and invitations." />
-        <div className="rounded-[28px] border border-black/5 bg-white p-10 text-center shadow-soft">
+        <div className="rounded-[28px] border border-black/5 bg-white p-6 sm:p-10 text-center shadow-soft">
           <p className="mb-4 text-[14px] text-muted-foreground">
             You don&apos;t have a workspace yet. Create one to invite teammates.
           </p>
@@ -48,8 +49,11 @@ export default function TeamPage() {
       <Topbar title={workspace.name} subtitle={`${workspace.member_count} members · ${workspace.plan} plan`} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft lg:col-span-2">
-          <h3 className="mb-5 text-[16px] font-semibold tracking-tight text-foreground">Members</h3>
+        <div className="rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft lg:col-span-2">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <h3 className="text-[16px] font-semibold tracking-tight text-foreground">Members</h3>
+            <StartCallDialog workspaceId={workspace.id} />
+          </div>
           <div className="flex flex-col">
             {members?.map((m) => (
               <div
@@ -74,22 +78,22 @@ export default function TeamPage() {
         </div>
 
         <div className="flex flex-col gap-6">
-          <div className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft">
+          <div className="rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft">
             <h3 className="mb-4 text-[16px] font-semibold tracking-tight text-foreground">Invite teammate</h3>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                invite.mutate({ email, role: "member" });
-                setEmail("");
+                invite.mutate({ phone_number: phoneNumber, role: "member" });
+                setPhoneNumber("");
               }}
               className="flex flex-col gap-3"
             >
               <Input
-                type="email"
+                type="tel"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="teammate@company.com"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="15551234567"
                 className="h-10 rounded-2xl border-black/10"
               />
               <Button
@@ -104,12 +108,12 @@ export default function TeamPage() {
           </div>
 
           {invitations && invitations.length > 0 && (
-            <div className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft">
+            <div className="rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft">
               <h3 className="mb-4 text-[14px] font-semibold tracking-tight text-foreground">Pending invitations</h3>
               <div className="flex flex-col gap-3">
                 {invitations.map((inv) => (
                   <div key={inv.id} className="flex items-center justify-between gap-2">
-                    <span className="truncate text-[13px] text-foreground/80">{inv.email}</span>
+                    <span className="truncate text-[13px] text-foreground/80">{inv.phone_number}</span>
                     <span className="shrink-0 text-[11.5px] capitalize text-muted-foreground">{inv.status}</span>
                   </div>
                 ))}

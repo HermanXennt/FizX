@@ -14,7 +14,7 @@ export function AIAssistantCard() {
   const [value, setValue] = useState("");
 
   return (
-    <div className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft">
+    <div className="rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft">
       <div className="mb-4 flex items-center gap-2.5">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
           <Sparkles className="h-[15px] w-[15px]" strokeWidth={2} />

@@ -1,125 +1,36 @@
-import logging
+from apps.core.exceptions import ValidationError
+from apps.integrations.whatsapp_otp import service as whatsapp_otp
 
-from django.conf import settings
-from django.utils.encoding import force_bytes, force_str
-from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
-from google.auth.transport import requests as google_requests
-from google.oauth2 import id_token as google_id_token
-
-from apps.core.exceptions import ApplicationError, ValidationError
-
-from .models import AuthProvider, User
+from .models import User
 from .repositories import UserRepository
-from .tasks import send_password_reset_email_task, send_verification_email_task
-from .tokens import email_verification_token_generator
-
-logger = logging.getLogger("apps.users")
 
 
 class AuthService:
     def __init__(self, repository: UserRepository | None = None):
         self.repository = repository or UserRepository()
 
-    def register(self, *, email: str, password: str, first_name: str = "", last_name: str = "") -> User:
-        user = User.objects.create_user(
-            email=email,
-            password=password,
-            first_name=first_name,
-            last_name=last_name,
-        )
-        self.send_verification_email(user)
-        return user
+    def request_otp(self, *, phone_number: str) -> None:
+        whatsapp_otp.send_otp(phone_number=phone_number)
 
-    def send_verification_email(self, user: User) -> None:
-        if user.is_verified:
-            return
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-        token = email_verification_token_generator.make_token(user)
-        verification_url = f"{settings.FRONTEND_URL}/verify-email?uid={uid}&token={token}"
-        send_verification_email_task.delay(str(user.id), verification_url)
+    def verify_otp(self, *, phone_number: str, code: str, first_name: str = "") -> tuple[User, bool]:
+        """Verifies the WhatsApp OTP and logs in or registers the number.
 
-    def confirm_email_verification(self, *, uid: str, token: str) -> User:
-        try:
-            user_id = force_str(urlsafe_base64_decode(uid))
-            user = self.repository.get_by_id_or_raise(user_id)
-        except (TypeError, ValueError, OverflowError) as exc:
-            raise ValidationError(detail="Invalid verification link.") from exc
+        Returns (user, created) - created is True the first time this phone
+        number completes verification, since that's the only signal that
+        distinguishes "registration" from "login" in a passwordless flow.
+        """
+        if not whatsapp_otp.verify_otp(phone_number=phone_number, code=code):
+            raise ValidationError(detail="That code is incorrect or has expired.")
 
-        if not email_verification_token_generator.check_token(user, token):
-            raise ValidationError(detail="This verification link is invalid or has expired.")
+        user = self.repository.get_by_phone_number(phone_number)
+        if user is not None:
+            return user, False
 
-        user.is_verified = True
-        user.save(update_fields=["is_verified", "updated_at"])
-        return user
+        if not first_name.strip():
+            raise ValidationError(detail="first_name is required to create a new account.")
 
-    def request_password_reset(self, *, email: str) -> None:
-        user = self.repository.get_by_email(email)
-        if user is None:
-            logger.info("Password reset requested for unknown email %s", email)
-            return  # do not leak account existence
-
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-        from django.contrib.auth.tokens import default_token_generator
-
-        token = default_token_generator.make_token(user)
-        reset_url = f"{settings.FRONTEND_URL}/reset-password?uid={uid}&token={token}"
-        send_password_reset_email_task.delay(str(user.id), reset_url)
-
-    def confirm_password_reset(self, *, uid: str, token: str, new_password: str) -> User:
-        from django.contrib.auth.tokens import default_token_generator
-
-        try:
-            user_id = force_str(urlsafe_base64_decode(uid))
-            user = self.repository.get_by_id_or_raise(user_id)
-        except (TypeError, ValueError, OverflowError) as exc:
-            raise ValidationError(detail="Invalid password reset link.") from exc
-
-        if not default_token_generator.check_token(user, token):
-            raise ValidationError(detail="This password reset link is invalid or has expired.")
-
-        user.set_password(new_password)
-        user.save(update_fields=["password", "updated_at"])
-        return user
-
-    def change_password(self, *, user: User, old_password: str, new_password: str) -> User:
-        if not user.check_password(old_password):
-            raise ValidationError(detail="Your current password is incorrect.")
-        user.set_password(new_password)
-        user.save(update_fields=["password", "updated_at"])
-        return user
-
-    def login_with_google(self, *, id_token_str: str) -> User:
-        if not settings.GOOGLE_OAUTH_CLIENT_ID:
-            raise ApplicationError(detail="Google sign-in is not configured on this server.")
-
-        try:
-            payload = google_id_token.verify_oauth2_token(
-                id_token_str,
-                google_requests.Request(),
-                settings.GOOGLE_OAUTH_CLIENT_ID,
-            )
-        except ValueError as exc:
-            raise ValidationError(detail="Invalid Google credential.") from exc
-
-        if not payload.get("email_verified", False):
-            raise ValidationError(detail="Your Google account email is not verified.")
-
-        email = payload["email"].lower()
-        user = self.repository.get_by_email(email)
-        if user is None:
-            user = User.objects.create_user(
-                email=email,
-                password=None,
-                first_name=payload.get("given_name", ""),
-                last_name=payload.get("family_name", ""),
-                auth_provider=AuthProvider.GOOGLE,
-                is_verified=True,
-            )
-        elif not user.is_verified:
-            user.is_verified = True
-            user.save(update_fields=["is_verified", "updated_at"])
-
-        return user
+        user = User.objects.create_user(phone_number=phone_number, first_name=first_name.strip())
+        return user, True
 
 
 class UserService:

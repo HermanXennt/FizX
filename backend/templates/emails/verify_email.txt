@@ -1,6 +1,0 @@
-Hi {{ first_name|default:"there" }},
-
-Confirm your email address to finish setting up your FizX account:
-{{ verification_url }}
-
-If you didn't request this, you can safely ignore this email.

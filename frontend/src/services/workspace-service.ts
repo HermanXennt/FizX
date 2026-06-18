@@ -17,8 +17,10 @@ export const workspaceService = {
 
   leave: (id: string) => apiClient.post(`/workspaces/${id}/leave/`),
 
-  members: (id: string) =>
-    apiClient.get<WorkspaceMember[]>(`/workspaces/${id}/members/`).then((r) => r.data),
+  members: (id: string, search?: string) =>
+    apiClient
+      .get<WorkspaceMember[]>(`/workspaces/${id}/members/`, { params: search ? { q: search } : undefined })
+      .then((r) => r.data),
 
   changeMemberRole: (id: string, userId: string, role: WorkspaceRole) =>
     apiClient.patch<WorkspaceMember>(`/workspaces/${id}/members/${userId}/`, { role }).then((r) => r.data),
@@ -28,8 +30,8 @@ export const workspaceService = {
   invitations: (id: string) =>
     apiClient.get<Invitation[]>(`/workspaces/${id}/invitations/`).then((r) => r.data),
 
-  invite: (id: string, email: string, role: "admin" | "member") =>
-    apiClient.post<Invitation>(`/workspaces/${id}/invitations/`, { email, role }).then((r) => r.data),
+  invite: (id: string, phone_number: string, role: "admin" | "member") =>
+    apiClient.post<Invitation>(`/workspaces/${id}/invitations/`, { phone_number, role }).then((r) => r.data),
 
   revokeInvitation: (id: string, invitationId: string) =>
     apiClient.post(`/workspaces/${id}/invitations/${invitationId}/revoke/`),

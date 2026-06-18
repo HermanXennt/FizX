@@ -26,7 +26,7 @@ export function ActiveCallCard() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="relative overflow-hidden rounded-[28px] bg-[#111113] p-8 text-white shadow-soft-lg"
+        className="relative overflow-hidden rounded-[28px] bg-[#111113] p-6 sm:p-8 text-white shadow-soft-lg"
       >
         <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -51,7 +51,7 @@ export function ActiveCallCard() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="relative overflow-hidden rounded-[28px] bg-[#111113] p-8 text-white shadow-soft-lg"
+      className="relative overflow-hidden rounded-[28px] bg-[#111113] p-6 sm:p-8 text-white shadow-soft-lg"
     >
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.07]"

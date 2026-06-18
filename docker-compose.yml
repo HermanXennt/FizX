@@ -17,15 +17,11 @@ x-django-env: &django-env
   REDIS_URL: redis://redis:6379/0
   CELERY_BROKER_URL: redis://redis:6379/1
   CELERY_RESULT_BACKEND: redis://redis:6379/2
-  EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
-  EMAIL_HOST: ${EMAIL_HOST:-}
-  EMAIL_PORT: ${EMAIL_PORT:-587}
-  EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
-  EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
-  EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
-  DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-FizX <no-reply@fizx.app>}
-  GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
-  GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+  # whatsapp-otp runs standalone on the host (not a container on this compose
+  # network - see /whatsapp-otp), so it's reached the same way LiveKit's HTTP
+  # API is: via host.docker.internal, not a Docker DNS service name.
+  WHATSAPP_OTP_URL: ${WHATSAPP_OTP_URL:-http://host.docker.internal:3210}
+  WHATSAPP_OTP_API_KEY: ${WHATSAPP_OTP_API_KEY}
   LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
   LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-devsecret_change_me_in_prod_min_32_chars}
   LIVEKIT_URL: ${LIVEKIT_PUBLIC_URL:-ws://localhost:7880}

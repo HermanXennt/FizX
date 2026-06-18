@@ -4,13 +4,6 @@ from apps.core.exceptions import NotFoundError
 
 from .models import Notification, NotificationType
 from .repositories import NotificationRepository
-from .tasks import send_notification_email_task
-
-EMAIL_PREFERENCE_BY_TYPE = {
-    NotificationType.MEETING_REMINDER: "email_on_meeting_reminder",
-    NotificationType.RECORDING_READY: "email_on_recording_ready",
-    NotificationType.WORKSPACE_INVITE: "email_on_invite",
-}
 
 
 class NotificationService:
@@ -25,17 +18,11 @@ class NotificationService:
         title: str,
         body: str = "",
         data: dict | None = None,
-        send_email: bool = True,
     ) -> Notification:
         notification = Notification.objects.create(
             recipient=recipient, type=type, title=title, body=body, data=data or {}
         )
         self._broadcast(notification)
-
-        preference_key = EMAIL_PREFERENCE_BY_TYPE.get(type)
-        if send_email and preference_key and recipient.notification_preferences.get(preference_key, True):
-            send_notification_email_task.delay(str(notification.id))
-
         return notification
 
     def _broadcast(self, notification: Notification) -> None:

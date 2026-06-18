@@ -31,13 +31,13 @@ export default function CalendarPage() {
 
       <div className="flex flex-col gap-6">
         {!isLoading && dateKeys.length === 0 && (
-          <div className="rounded-[28px] border border-black/5 bg-white p-10 text-center shadow-soft">
+          <div className="rounded-[28px] border border-black/5 bg-white p-6 sm:p-10 text-center shadow-soft">
             <p className="text-[14px] text-muted-foreground">No upcoming meetings scheduled.</p>
           </div>
         )}
 
         {dateKeys.map((dateKey) => (
-          <div key={dateKey} className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft">
+          <div key={dateKey} className="rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft">
             <h3 className="mb-4 text-[15px] font-semibold tracking-tight text-foreground">
               {new Date(dateKey).toLocaleDateString(undefined, {
                 weekday: "long",

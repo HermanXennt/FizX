@@ -16,10 +16,10 @@ export function useWorkspace(id: string | undefined) {
   });
 }
 
-export function useWorkspaceMembers(id: string | undefined) {
+export function useWorkspaceMembers(id: string | undefined, search?: string) {
   return useQuery({
-    queryKey: ["workspaces", id, "members"],
-    queryFn: () => workspaceService.members(id as string),
+    queryKey: ["workspaces", id, "members", search ?? ""],
+    queryFn: () => workspaceService.members(id as string, search),
     enabled: Boolean(id),
   });
 }
@@ -43,8 +43,8 @@ export function useCreateWorkspace() {
 export function useInviteToWorkspace(workspaceId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ email, role }: { email: string; role: "admin" | "member" }) =>
-      workspaceService.invite(workspaceId, email, role),
+    mutationFn: ({ phone_number, role }: { phone_number: string; role: "admin" | "member" }) =>
+      workspaceService.invite(workspaceId, phone_number, role),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["workspaces", workspaceId, "invitations"] }),
   });
@@ -64,5 +64,19 @@ export function useRemoveMember(workspaceId: string) {
   return useMutation({
     mutationFn: (userId: string) => workspaceService.removeMember(workspaceId, userId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workspaces", workspaceId, "members"] }),
+  });
+}
+
+export function useAcceptInvitation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (token: string) => workspaceService.acceptInvitation(token),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workspaces"] }),
+  });
+}
+
+export function useDeclineInvitation() {
+  return useMutation({
+    mutationFn: (token: string) => workspaceService.declineInvitation(token),
   });
 }

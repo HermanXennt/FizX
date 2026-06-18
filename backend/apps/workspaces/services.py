@@ -5,7 +5,6 @@ from apps.core.exceptions import ConflictError, NotFoundError, PermissionDeniedE
 
 from .models import Invitation, InvitationStatus, Workspace, WorkspaceMember, WorkspaceRole
 from .repositories import InvitationRepository, WorkspaceMemberRepository, WorkspaceRepository
-from .tasks import send_invitation_email_task
 
 
 class WorkspaceService:
@@ -86,33 +85,49 @@ class InvitationService:
         self.member_repo = member_repo or WorkspaceMemberRepository()
 
     @transaction.atomic
-    def invite(self, *, workspace: Workspace, email: str, role: str, invited_by) -> Invitation:
+    def invite(self, *, workspace: Workspace, phone_number: str, role: str, invited_by) -> Invitation:
         from apps.users.repositories import UserRepository
 
-        email = email.lower()
         if role == WorkspaceRole.OWNER:
             raise ValidationError(detail="Ownership cannot be granted through an invitation.")
 
-        existing_user = UserRepository().get_by_email(email)
+        existing_user = UserRepository().get_by_phone_number(phone_number)
         if existing_user and self.member_repo.get_membership(workspace, existing_user):
             raise ConflictError(detail="This person is already a member of the workspace.")
 
-        existing_invite = self.invitation_repo.pending_for_email(workspace, email)
+        existing_invite = self.invitation_repo.pending_for_phone_number(workspace, phone_number)
         if existing_invite:
-            existing_invite = self.invitation_repo.update(
+            invitation = self.invitation_repo.update(
                 existing_invite,
                 role=role,
                 invited_by=invited_by,
                 expires_at=timezone.now() + timezone.timedelta(days=7),
             )
-            send_invitation_email_task.delay(str(existing_invite.id))
-            return existing_invite
+        else:
+            invitation = Invitation.objects.create(
+                workspace=workspace, phone_number=phone_number, role=role, invited_by=invited_by
+            )
 
-        invitation = Invitation.objects.create(
-            workspace=workspace, email=email, role=role, invited_by=invited_by
-        )
-        send_invitation_email_task.delay(str(invitation.id))
+        # There's no way to reach someone by phone number who doesn't have an
+        # account yet other than them registering with that exact number -
+        # at which point there's nothing pending to surface to them anyway
+        # until they're a real User row a notification can be attached to.
+        if existing_user:
+            self._notify_invitee(invitation=invitation, invitee=existing_user, invited_by=invited_by)
+
         return invitation
+
+    def _notify_invitee(self, *, invitation: Invitation, invitee, invited_by) -> None:
+        from apps.notifications.models import NotificationType
+        from apps.notifications.services import NotificationService
+
+        NotificationService().create(
+            recipient=invitee,
+            type=NotificationType.WORKSPACE_INVITE,
+            title=f"{invited_by.full_name} invited you to join {invitation.workspace.name}",
+            body=f"As {invitation.get_role_display()}",
+            data={"invitation_token": invitation.token, "workspace_name": invitation.workspace.name},
+        )
 
     def revoke(self, *, invitation: Invitation) -> Invitation:
         if invitation.status != InvitationStatus.PENDING:
@@ -132,8 +147,8 @@ class InvitationService:
         if invitation.status != InvitationStatus.PENDING:
             raise ConflictError(detail=f"This invitation has already been {invitation.status}.")
 
-        if invitation.email.lower() != user.email.lower():
-            raise PermissionDeniedError(detail="This invitation was sent to a different email address.")
+        if invitation.phone_number != user.phone_number:
+            raise PermissionDeniedError(detail="This invitation was sent to a different phone number.")
 
         membership, created = WorkspaceMember.objects.get_or_create(
             workspace=invitation.workspace, user=user, defaults={"role": invitation.role}
@@ -145,8 +160,8 @@ class InvitationService:
         invitation = self.invitation_repo.get_by_token(token)
         if invitation is None:
             raise NotFoundError(detail="This invitation does not exist.")
-        if invitation.email.lower() != user.email.lower():
-            raise PermissionDeniedError(detail="This invitation was sent to a different email address.")
+        if invitation.phone_number != user.phone_number:
+            raise PermissionDeniedError(detail="This invitation was sent to a different phone number.")
         if invitation.status != InvitationStatus.PENDING:
             raise ConflictError(detail=f"This invitation has already been {invitation.status}.")
         return self.invitation_repo.update(invitation, status=InvitationStatus.DECLINED, responded_at=timezone.now())

@@ -18,11 +18,6 @@ export default function SettingsPage() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
 
-  const [oldPassword, setOldPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [passwordSaving, setPasswordSaving] = useState(false);
-  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
-
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
     setProfileSaving(true);
@@ -45,28 +40,12 @@ export default function SettingsPage() {
     setUser(updated);
   }
 
-  async function handleChangePassword(e: React.FormEvent) {
-    e.preventDefault();
-    setPasswordSaving(true);
-    setPasswordMessage(null);
-    try {
-      await authService.changePassword({ old_password: oldPassword, new_password: newPassword });
-      setPasswordMessage("Password updated.");
-      setOldPassword("");
-      setNewPassword("");
-    } catch (error) {
-      setPasswordMessage(extractErrorMessage(error));
-    } finally {
-      setPasswordSaving(false);
-    }
-  }
-
   return (
     <>
       <Topbar title="Settings" subtitle="Manage your profile and account." />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft">
+      <div className="mx-auto max-w-xl">
+        <div className="rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft">
           <h3 className="mb-5 text-[16px] font-semibold tracking-tight text-foreground">Profile</h3>
 
           <div className="mb-5 flex items-center gap-4">
@@ -107,7 +86,7 @@ export default function SettingsPage() {
                 className="h-10 rounded-2xl border-black/10"
               />
             </div>
-            <Input value={user?.email ?? ""} disabled className="h-10 rounded-2xl border-black/10" />
+            <Input value={user?.phone_number ?? ""} disabled className="h-10 rounded-2xl border-black/10" />
             {profileMessage && <p className="text-[12.5px] text-muted-foreground">{profileMessage}</p>}
             <Button
               type="submit"
@@ -115,37 +94,6 @@ export default function SettingsPage() {
               className="h-10 w-fit rounded-full bg-primary text-primary-foreground"
             >
               {profileSaving ? "Saving…" : "Save changes"}
-            </Button>
-          </form>
-        </div>
-
-        <div className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft">
-          <h3 className="mb-5 text-[16px] font-semibold tracking-tight text-foreground">Change password</h3>
-          <form onSubmit={handleChangePassword} className="flex flex-col gap-3">
-            <Input
-              type="password"
-              required
-              value={oldPassword}
-              onChange={(e) => setOldPassword(e.target.value)}
-              placeholder="Current password"
-              className="h-10 rounded-2xl border-black/10"
-            />
-            <Input
-              type="password"
-              required
-              minLength={10}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="New password"
-              className="h-10 rounded-2xl border-black/10"
-            />
-            {passwordMessage && <p className="text-[12.5px] text-muted-foreground">{passwordMessage}</p>}
-            <Button
-              type="submit"
-              disabled={passwordSaving}
-              className="h-10 w-fit rounded-full bg-primary text-primary-foreground"
-            >
-              {passwordSaving ? "Updating…" : "Update password"}
             </Button>
           </form>
         </div>

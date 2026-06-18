@@ -23,7 +23,7 @@ export function AnalyticsCard() {
   const totalHours = stats ? Math.round((stats.total_minutes_in_meetings / 60) * 10) / 10 : 0;
 
   return (
-    <div className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft">
+    <div className="rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft">
       <h3 className="mb-5 text-[16px] font-semibold tracking-tight text-foreground">Analytics</h3>
 
       <div className="grid grid-cols-3 gap-3">

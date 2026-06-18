@@ -4,6 +4,7 @@ import { useTracks, VideoTrack } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import { motion } from "framer-motion";
 import { MonitorUp } from "lucide-react";
+import { useState } from "react";
 import { VideoTile } from "@/components/call/video-tile";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,42 @@ const gridCols: Record<number, string> = {
   6: "grid-cols-2 sm:grid-cols-3",
 };
 
+function ThumbnailRail({
+  tracks,
+  hostIdentity,
+  pinnedIdentity,
+  onSelect,
+  compactWidth,
+}: {
+  tracks: ReturnType<typeof useTracks>;
+  hostIdentity?: string;
+  pinnedIdentity: string | null;
+  onSelect: (identity: string) => void;
+  compactWidth: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 gap-3 overflow-x-auto overflow-y-hidden scrollbar-none",
+        "flex-row sm:flex-col sm:overflow-x-hidden sm:overflow-y-auto",
+        compactWidth ? "sm:w-[140px]" : "sm:w-[180px]"
+      )}
+    >
+      {tracks.map((trackRef) => (
+        <VideoTile
+          key={trackRef.participant.identity}
+          trackRef={trackRef}
+          isHost={trackRef.participant.identity === hostIdentity}
+          pinned={trackRef.participant.identity === pinnedIdentity}
+          onClick={() => onSelect(trackRef.participant.identity)}
+          compact
+          className="aspect-video h-24 shrink-0 sm:h-auto sm:w-full"
+        />
+      ))}
+    </div>
+  );
+}
+
 export function ParticipantGrid({
   panelOpen,
   hostIdentity,
@@ -27,17 +64,24 @@ export function ParticipantGrid({
     onlySubscribed: false,
   });
   const screenShareTracks = useTracks([Track.Source.ScreenShare], { onlySubscribed: false });
+  // If the pinned participant leaves, lookups below simply stop matching and
+  // the view falls back to the grid on its own - no need to clear this.
+  const [pinnedIdentity, setPinnedIdentity] = useState<string | null>(null);
+
+  function togglePin(identity: string) {
+    setPinnedIdentity((current) => (current === identity ? null : identity));
+  }
 
   if (screenShareTracks.length > 0) {
     const presenterTrack = screenShareTracks[0];
 
     return (
-      <div className="flex h-full w-full gap-4">
+      <div className="flex h-full w-full flex-col gap-4 sm:flex-row">
         <motion.div
           layout
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="relative flex flex-1 items-center justify-center overflow-hidden rounded-3xl border border-white/[0.06] bg-[#161618]"
+          className="relative min-h-0 flex-1 overflow-hidden rounded-3xl border border-white/[0.06] bg-[#161618]"
         >
           <VideoTrack trackRef={presenterTrack} playsInline className="h-full w-full object-contain" />
           <div className="absolute bottom-4 left-4 flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-[12px] font-medium text-white/80 backdrop-blur-sm">
@@ -46,22 +90,43 @@ export function ParticipantGrid({
           </div>
         </motion.div>
 
-        <div
-          className={cn(
-            "flex shrink-0 flex-col gap-3 overflow-y-auto scrollbar-none",
-            panelOpen ? "w-[140px]" : "w-[180px]"
-          )}
-        >
-          {cameraTracks.map((trackRef) => (
-            <VideoTile
-              key={trackRef.participant.identity}
-              trackRef={trackRef}
-              isHost={trackRef.participant.identity === hostIdentity}
-              compact
-              className="aspect-video w-full shrink-0"
-            />
-          ))}
+        <ThumbnailRail
+          tracks={cameraTracks}
+          hostIdentity={hostIdentity}
+          pinnedIdentity={null}
+          onSelect={() => {}}
+          compactWidth={panelOpen}
+        />
+      </div>
+    );
+  }
+
+  const pinnedTrack = cameraTracks.find((t) => t.participant.identity === pinnedIdentity);
+
+  if (pinnedTrack) {
+    const others = cameraTracks.filter((t) => t.participant.identity !== pinnedIdentity);
+
+    return (
+      <div className="flex h-full w-full flex-col gap-4 sm:flex-row">
+        <div className="min-h-0 flex-1">
+          <VideoTile
+            trackRef={pinnedTrack}
+            isHost={pinnedTrack.participant.identity === hostIdentity}
+            pinned
+            onClick={() => togglePin(pinnedTrack.participant.identity)}
+            className="h-full w-full"
+          />
         </div>
+
+        {others.length > 0 && (
+          <ThumbnailRail
+            tracks={others}
+            hostIdentity={hostIdentity}
+            pinnedIdentity={pinnedIdentity}
+            onSelect={togglePin}
+            compactWidth={panelOpen}
+          />
+        )}
       </div>
     );
   }
@@ -75,7 +140,8 @@ export function ParticipantGrid({
           key={trackRef.participant.identity}
           trackRef={trackRef}
           isHost={trackRef.participant.identity === hostIdentity}
-          className="aspect-video w-full"
+          onClick={cameraTracks.length > 1 ? () => togglePin(trackRef.participant.identity) : undefined}
+          className="h-full w-full"
         />
       ))}
     </div>

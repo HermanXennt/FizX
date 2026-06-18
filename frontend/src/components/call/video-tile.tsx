@@ -18,11 +18,15 @@ export function VideoTile({
   isHost = false,
   className,
   compact = false,
+  pinned = false,
+  onClick,
 }: {
   trackRef: TrackReferenceOrPlaceholder;
   isHost?: boolean;
   className?: string;
   compact?: boolean;
+  pinned?: boolean;
+  onClick?: () => void;
 }) {
   const participant = trackRef.participant;
   const displayName = participant.name || "Guest";
@@ -33,11 +37,14 @@ export function VideoTile({
   return (
     <motion.div
       layout
+      layoutId={`tile-${participant.identity}`}
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
+      onClick={onClick}
       className={cn(
         "group relative flex items-center justify-center overflow-hidden rounded-3xl border",
+        onClick && "cursor-pointer",
         participant.isSpeaking
           ? "border-white/40 shadow-[0_0_0_3px_rgba(255,255,255,0.08)]"
           : "border-white/[0.06]",
@@ -78,9 +85,18 @@ export function VideoTile({
         )}
       </div>
 
-      <button className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/30 text-white/0 opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:text-white/80 group-hover:opacity-100">
-        <Pin className="h-3.5 w-3.5" strokeWidth={2} />
-      </button>
+      {onClick && (
+        <span
+          className={cn(
+            "absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full backdrop-blur-sm transition-opacity duration-200",
+            pinned
+              ? "bg-white text-[#111113] opacity-100"
+              : "bg-black/30 text-white/80 opacity-0 group-hover:opacity-100"
+          )}
+        >
+          <Pin className="h-3.5 w-3.5" strokeWidth={2} fill={pinned ? "currentColor" : "none"} />
+        </span>
+      )}
 
       <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/35 px-2.5 py-1 backdrop-blur-sm">
         {participant.isMicrophoneEnabled ? (

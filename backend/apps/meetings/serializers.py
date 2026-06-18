@@ -52,6 +52,9 @@ class MeetingSerializer(serializers.ModelSerializer):
 class CreateInstantMeetingSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=200, required=False, default="Instant Meeting")
     workspace = serializers.UUIDField(required=False, allow_null=True)
+    participant_ids = serializers.ListField(
+        child=serializers.UUIDField(), required=False, default=list, max_length=50
+    )
 
 
 class ScheduleMeetingSerializer(serializers.Serializer):

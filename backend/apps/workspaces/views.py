@@ -63,7 +63,8 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     @extend_schema(responses={200: WorkspaceMemberSerializer(many=True)})
     def members(self, request, pk=None):
         workspace = self.get_object()
-        members = WorkspaceMemberRepository().for_workspace(workspace)
+        search = request.query_params.get("q", "")
+        members = WorkspaceMemberRepository().for_workspace(workspace, search=search)
         return Response(WorkspaceMemberSerializer(members, many=True).data)
 
     @action(detail=True, methods=["patch", "delete"], url_path=r"members/(?P<user_id>[^/.]+)")

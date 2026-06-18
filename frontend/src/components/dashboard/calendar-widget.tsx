@@ -32,7 +32,7 @@ export function CalendarWidget() {
     }));
 
   return (
-    <div className="rounded-[28px] border border-black/5 bg-white p-7 shadow-soft">
+    <div className="rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft">
       <div className="mb-5 flex items-center justify-between">
         <h3 className="text-[16px] font-semibold tracking-tight text-foreground">
           Calendar

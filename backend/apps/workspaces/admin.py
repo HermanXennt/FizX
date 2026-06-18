@@ -21,8 +21,8 @@ class WorkspaceAdmin(admin.ModelAdmin):
 
 @admin.register(Invitation)
 class InvitationAdmin(admin.ModelAdmin):
-    list_display = ("email", "workspace", "role", "status", "expires_at", "created_at")
+    list_display = ("phone_number", "workspace", "role", "status", "expires_at", "created_at")
     list_filter = ("status", "role")
-    search_fields = ("email", "workspace__name")
+    search_fields = ("phone_number", "workspace__name")
     readonly_fields = ("id", "token", "created_at", "updated_at")
     autocomplete_fields = ["workspace", "invited_by"]

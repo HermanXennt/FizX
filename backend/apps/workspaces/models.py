@@ -78,7 +78,7 @@ class WorkspaceMember(BaseModel):
         ordering = ["-role", "created_at"]
 
     def __str__(self) -> str:
-        return f"{self.user.email} @ {self.workspace.name} ({self.role})"
+        return f"{self.user.phone_number} @ {self.workspace.name} ({self.role})"
 
 
 class InvitationStatus(models.TextChoices):
@@ -99,7 +99,7 @@ def generate_invitation_token() -> str:
 
 class Invitation(BaseModel):
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="invitations")
-    email = models.EmailField()
+    phone_number = models.CharField(max_length=15)
     role = models.CharField(
         max_length=20, choices=[(WorkspaceRole.ADMIN, "Admin"), (WorkspaceRole.MEMBER, "Member")],
         default=WorkspaceRole.MEMBER,
@@ -116,15 +116,15 @@ class Invitation(BaseModel):
         db_table = "workspace_invitations"
         constraints = [
             models.UniqueConstraint(
-                fields=["workspace", "email"],
+                fields=["workspace", "phone_number"],
                 condition=models.Q(status=InvitationStatus.PENDING),
-                name="unique_pending_invite_per_workspace_email",
+                name="unique_pending_invite_per_workspace_phone",
             ),
         ]
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
-        return f"Invite {self.email} -> {self.workspace.name} ({self.status})"
+        return f"Invite {self.phone_number} -> {self.workspace.name} ({self.status})"
 
     @property
     def is_expired(self) -> bool:

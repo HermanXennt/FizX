@@ -1,21 +1,29 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { Sparkle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useLogin } from "@/hooks/use-auth";
+import { useRequestOtp, useVerifyOtp } from "@/hooks/use-auth";
 import { extractErrorMessage } from "@/lib/api-client";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const login = useLogin();
+  const [step, setStep] = useState<"phone" | "code">("phone");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [code, setCode] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  const requestOtp = useRequestOtp();
+  const verifyOtp = useVerifyOtp();
+
+  function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
-    login.mutate({ email, password });
+    requestOtp.mutate(phoneNumber, { onSuccess: () => setStep("code") });
+  }
+
+  function handleVerify(e: React.FormEvent) {
+    e.preventDefault();
+    verifyOtp.mutate({ phone_number: phoneNumber, code, first_name: firstName });
   }
 
   return (
@@ -25,64 +33,99 @@ export default function LoginPage() {
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-soft">
             <Sparkle className="h-5 w-5" strokeWidth={2.25} fill="currentColor" />
           </div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-foreground">Welcome back</h1>
-          <p className="text-[14px] text-muted-foreground">Sign in to your FizX workspace</p>
+          <h1 className="text-[22px] font-semibold tracking-tight text-foreground">
+            {step === "phone" ? "Welcome to FizX" : "Enter your code"}
+          </h1>
+          <p className="text-center text-[14px] text-muted-foreground">
+            {step === "phone"
+              ? "Sign in or create an account with WhatsApp"
+              : `We sent a code over WhatsApp to ${phoneNumber}`}
+          </p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-4 rounded-[28px] border border-black/5 bg-white p-7 shadow-soft"
-        >
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[13px] font-medium text-foreground/80">Email</label>
-            <Input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-              className="h-11 rounded-2xl border-black/10"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-[13px] font-medium text-foreground/80">Password</label>
-              <Link href="/forgot-password" className="text-[12px] text-muted-foreground hover:text-foreground">
-                Forgot password?
-              </Link>
-            </div>
-            <Input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="h-11 rounded-2xl border-black/10"
-            />
-          </div>
-
-          {login.isError && (
-            <p className="rounded-xl bg-red-50 px-3 py-2 text-[12.5px] text-red-600">
-              {extractErrorMessage(login.error)}
-            </p>
-          )}
-
-          <Button
-            type="submit"
-            disabled={login.isPending}
-            className="mt-1 h-11 rounded-full bg-primary text-primary-foreground shadow-soft hover:bg-primary/90"
+        {step === "phone" ? (
+          <form
+            onSubmit={handleSendCode}
+            className="flex flex-col gap-4 rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft"
           >
-            {login.isPending ? "Signing in…" : "Sign in"}
-          </Button>
-        </form>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[13px] font-medium text-foreground/80">Phone number</label>
+              <Input
+                type="tel"
+                required
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="15551234567"
+                className="h-11 rounded-2xl border-black/10"
+              />
+            </div>
 
-        <p className="mt-6 text-center text-[13.5px] text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="font-medium text-foreground hover:underline">
-            Create one
-          </Link>
-        </p>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[13px] font-medium text-foreground/80">
+                Name <span className="text-muted-foreground">(only needed if you&apos;re new)</span>
+              </label>
+              <Input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Jane"
+                className="h-11 rounded-2xl border-black/10"
+              />
+            </div>
+
+            {requestOtp.isError && (
+              <p className="rounded-xl bg-red-50 px-3 py-2 text-[12.5px] text-red-600">
+                {extractErrorMessage(requestOtp.error)}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              disabled={requestOtp.isPending}
+              className="mt-1 h-11 rounded-full bg-primary text-primary-foreground shadow-soft hover:bg-primary/90"
+            >
+              {requestOtp.isPending ? "Sending…" : "Send code"}
+            </Button>
+          </form>
+        ) : (
+          <form
+            onSubmit={handleVerify}
+            className="flex flex-col gap-4 rounded-[28px] border border-black/5 bg-white p-5 sm:p-7 shadow-soft"
+          >
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[13px] font-medium text-foreground/80">Verification code</label>
+              <Input
+                required
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="123456"
+                className="h-11 rounded-2xl border-black/10 text-center text-[18px] tracking-[0.3em]"
+              />
+            </div>
+
+            {verifyOtp.isError && (
+              <p className="rounded-xl bg-red-50 px-3 py-2 text-[12.5px] text-red-600">
+                {extractErrorMessage(verifyOtp.error)}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              disabled={verifyOtp.isPending}
+              className="mt-1 h-11 rounded-full bg-primary text-primary-foreground shadow-soft hover:bg-primary/90"
+            >
+              {verifyOtp.isPending ? "Verifying…" : "Verify & continue"}
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => setStep("phone")}
+              className="text-[13px] text-muted-foreground hover:text-foreground"
+            >
+              Use a different number
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );

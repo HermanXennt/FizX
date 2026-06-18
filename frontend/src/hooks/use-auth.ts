@@ -2,28 +2,22 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { authService, type LoginPayload, type RegisterPayload } from "@/services/auth-service";
+import { authService } from "@/services/auth-service";
 import { useAuthStore } from "@/store/auth-store";
 
-export function useLogin() {
-  const router = useRouter();
-  const setSession = useAuthStore((s) => s.setSession);
-
+export function useRequestOtp() {
   return useMutation({
-    mutationFn: (payload: LoginPayload) => authService.login(payload),
-    onSuccess: (data) => {
-      setSession(data);
-      router.push("/");
-    },
+    mutationFn: (phone_number: string) => authService.requestOtp(phone_number),
   });
 }
 
-export function useRegister() {
+export function useVerifyOtp() {
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
 
   return useMutation({
-    mutationFn: (payload: RegisterPayload) => authService.register(payload),
+    mutationFn: (payload: { phone_number: string; code: string; first_name?: string }) =>
+      authService.verifyOtp(payload),
     onSuccess: (data) => {
       setSession(data);
       router.push("/");

@@ -3,16 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import {
-  LayoutGrid,
-  CalendarDays,
-  Users,
-  Disc,
-  BarChart3,
-  Settings,
-  Sparkle,
-  LogOut,
-} from "lucide-react";
+import { Settings, Sparkle, LogOut } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -24,25 +15,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { navItems } from "@/components/layout/nav-items";
 import { useLogout } from "@/hooks/use-auth";
 import { useAuthStore } from "@/store/auth-store";
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutGrid },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/team", label: "Team", icon: Users },
-  { href: "/recordings", label: "Recordings", icon: Disc },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
-];
-
-const presenceDotColor: Record<string, string> = {
-  online: "#34c759",
-  in_call: "#1d1d1f",
-  away: "#f5a623",
-  do_not_disturb: "#ff3b30",
-  offline: "#c7c7cc",
-};
+import { presenceDotColor } from "@/lib/presence";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -135,7 +112,7 @@ export function Sidebar() {
           <DropdownMenuContent side="right" align="end" className="w-44 rounded-2xl p-1.5">
             <div className="px-2 py-1.5">
               <p className="truncate text-[13px] font-medium">{user?.full_name}</p>
-              <p className="truncate text-[11.5px] text-muted-foreground">{user?.email}</p>
+              <p className="truncate text-[11.5px] text-muted-foreground">{user?.phone_number}</p>
             </div>
             <DropdownMenuItem onClick={() => logout.mutate()} className="rounded-xl py-1.5 text-[13px]">
               <LogOut className="h-3.5 w-3.5" />
