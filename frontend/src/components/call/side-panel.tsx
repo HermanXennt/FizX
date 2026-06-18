@@ -40,7 +40,11 @@ export function SidePanel({
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 24 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
-          className="flex h-full w-[360px] shrink-0 flex-col rounded-3xl border border-white/[0.06] bg-[#18181a] text-white"
+          // Below sm, this overlays just the video-grid area (its parent is
+          // the relatively-positioned middle row, not the viewport) so the
+          // call timer up top and mic/camera/leave controls below stay
+          // reachable - at sm+ it reverts to a normal fixed-width sidebar.
+          className="absolute inset-0 z-30 flex flex-col rounded-3xl border border-white/[0.06] bg-[#18181a] text-white sm:relative sm:inset-auto sm:w-[360px] sm:shrink-0"
         >
           <div className="flex items-center justify-between gap-2 p-4 pb-3">
             <div className="flex items-center gap-1 rounded-full bg-white/[0.06] p-1">

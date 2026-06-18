@@ -39,7 +39,7 @@ export function ParticipantGrid({
           animate={{ opacity: 1 }}
           className="relative flex flex-1 items-center justify-center overflow-hidden rounded-3xl border border-white/[0.06] bg-[#161618]"
         >
-          <VideoTrack trackRef={presenterTrack} className="h-full w-full object-contain" />
+          <VideoTrack trackRef={presenterTrack} playsInline className="h-full w-full object-contain" />
           <div className="absolute bottom-4 left-4 flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-[12px] font-medium text-white/80 backdrop-blur-sm">
             <MonitorUp className="h-3.5 w-3.5" />
             {presenterTrack.participant.name || "Someone"} is presenting

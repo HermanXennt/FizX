@@ -28,20 +28,20 @@ export function CallTopbar({ title, startedAt }: { title: string; startedAt: num
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="flex items-center justify-between"
+      className="flex items-center justify-between gap-2"
     >
-      <div className="flex items-center gap-3 rounded-full border border-white/[0.08] bg-white/[0.06] px-4 py-2 text-white backdrop-blur-md">
-        <span className="relative flex h-1.5 w-1.5">
+      <div className="flex min-w-0 items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.06] px-3 py-2 text-white backdrop-blur-md sm:gap-3 sm:px-4">
+        <span className="relative flex h-1.5 w-1.5 shrink-0">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
           <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
         </span>
-        <p className="text-[13.5px] font-medium">{title}</p>
-        <span className="h-3.5 w-px bg-white/15" />
-        <p className="text-[13px] tabular-nums text-white/55">{elapsed}</p>
+        <p className="min-w-0 truncate text-[13px] font-medium sm:text-[13.5px]">{title}</p>
+        <span className="h-3.5 w-px shrink-0 bg-white/15" />
+        <p className="shrink-0 text-[13px] tabular-nums text-white/55">{elapsed}</p>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="rounded-full border border-white/[0.08] bg-white/[0.06] px-3 py-2 backdrop-blur-md">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <div className="hidden rounded-full border border-white/[0.08] bg-white/[0.06] px-3 py-2 backdrop-blur-md sm:block">
           <AvatarStack
             people={participants.map((p) => ({
               id: p.identity,
@@ -53,7 +53,7 @@ export function CallTopbar({ title, startedAt }: { title: string; startedAt: num
         </div>
         <Link
           href="/"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.06] text-white/80 backdrop-blur-md transition-colors hover:bg-white/[0.12] hover:text-white"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.06] text-white/80 backdrop-blur-md transition-colors hover:bg-white/[0.12] hover:text-white sm:h-10 sm:w-10"
         >
           <Minimize2 className="h-[16px] w-[16px]" strokeWidth={1.9} />
         </Link>

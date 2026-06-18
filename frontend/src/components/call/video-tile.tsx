@@ -48,7 +48,7 @@ export function VideoTile({
       <div className="pointer-events-none absolute inset-0 bg-black/10" />
 
       {hasVideo ? (
-        <VideoTrack trackRef={trackRef} className="h-full w-full object-cover" />
+        <VideoTrack trackRef={trackRef} playsInline className="h-full w-full object-cover" />
       ) : (
         <div
           className={cn(

@@ -1,10 +1,12 @@
 "use client";
 
 import { LiveKitRoom, RoomAudioRenderer, useLocalParticipant } from "@livekit/components-react";
+import { MediaDeviceFailure } from "livekit-client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ControlsDock } from "@/components/call/controls-dock";
 import { EnableAudioOverlay } from "@/components/call/enable-audio-overlay";
+import { MediaErrorBanner } from "@/components/call/media-error-banner";
 import { ParticipantGrid } from "@/components/call/participant-grid";
 import { CallTopbar } from "@/components/call/call-topbar";
 import { SidePanel, type PanelTab } from "@/components/call/side-panel";
@@ -13,9 +15,19 @@ import { meetingService } from "@/services/meeting-service";
 import { useAuthStore } from "@/store/auth-store";
 import type { Meeting } from "@/types/meeting";
 
-function CallShell({ meeting, onLeave }: { meeting: Meeting; onLeave: () => void }) {
+function CallShell({
+  meeting,
+  onLeave,
+  mediaError,
+  onDismissMediaError,
+}: {
+  meeting: Meeting;
+  onLeave: () => void;
+  mediaError: MediaDeviceFailure | null;
+  onDismissMediaError: () => void;
+}) {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
-  const [activePanel, setActivePanel] = useState<PanelTab | null>("chat");
+  const [activePanel, setActivePanel] = useState<PanelTab | null>(null);
   const currentUserId = useAuthStore((s) => s.user?.id);
   const isHost = currentUserId === meeting.host.id;
   const [startedAt] = useState(() =>
@@ -23,7 +35,7 @@ function CallShell({ meeting, onLeave }: { meeting: Meeting; onLeave: () => void
   );
 
   return (
-    <div className="relative flex h-screen w-screen flex-col gap-4 overflow-hidden bg-[#0b0b0c] p-5">
+    <div className="relative flex h-screen w-screen flex-col gap-2 overflow-hidden bg-[#0b0b0c] p-2 sm:gap-4 sm:p-5">
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.5]"
         style={{
@@ -32,9 +44,11 @@ function CallShell({ meeting, onLeave }: { meeting: Meeting; onLeave: () => void
         }}
       />
 
+      {mediaError && <MediaErrorBanner failure={mediaError} onDismiss={onDismissMediaError} />}
+
       <CallTopbar title={meeting.title} startedAt={startedAt} />
 
-      <div className="flex min-h-0 flex-1 gap-4">
+      <div className="relative flex min-h-0 flex-1 gap-2 sm:gap-4">
         <div className="min-w-0 flex-1">
           <ParticipantGrid panelOpen={activePanel !== null} hostIdentity={meeting.host.id} />
         </div>
@@ -76,6 +90,7 @@ export function CallRoom({
 }) {
   const router = useRouter();
   const { data: iceServers, isLoading: iceServersLoading } = useIceServers();
+  const [mediaError, setMediaError] = useState<MediaDeviceFailure | null>(null);
 
   async function handleLeave() {
     try {
@@ -107,10 +122,16 @@ export function CallRoom({
       // candidates, and a flaky direct path shows up as periodic disconnects.
       connectOptions={iceServers ? { rtcConfig: { iceServers } } : undefined}
       onDisconnected={() => router.push("/")}
+      onMediaDeviceFailure={(failure) => failure && setMediaError(failure)}
     >
       <RoomAudioRenderer />
       <EnableAudioOverlay />
-      <CallShell meeting={meeting} onLeave={handleLeave} />
+      <CallShell
+        meeting={meeting}
+        onLeave={handleLeave}
+        mediaError={mediaError}
+        onDismissMediaError={() => setMediaError(null)}
+      />
     </LiveKitRoom>
   );
 }
