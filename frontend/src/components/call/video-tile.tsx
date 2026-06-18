@@ -33,6 +33,10 @@ export function VideoTile({
   const initials = initialsFor(displayName);
   const color = stableColor(participant.identity);
   const hasVideo = isTrackReference(trackRef) && !trackRef.publication.isMuted;
+  // Mirror only the local camera preview so it feels like a mirror to look
+  // into - this is purely a local rendering flip and doesn't affect the
+  // unmirrored video everyone else actually receives over the wire.
+  const mirrored = participant.isLocal;
 
   return (
     <motion.div
@@ -55,7 +59,11 @@ export function VideoTile({
       <div className="pointer-events-none absolute inset-0 bg-black/10" />
 
       {hasVideo ? (
-        <VideoTrack trackRef={trackRef} playsInline className="h-full w-full object-cover" />
+        <VideoTrack
+          trackRef={trackRef}
+          playsInline
+          className={cn("h-full w-full object-cover", mirrored && "-scale-x-100")}
+        />
       ) : (
         <div
           className={cn(
