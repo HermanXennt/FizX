@@ -36,6 +36,19 @@ x-django-env: &django-env
   STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
   STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
   STRIPE_PRICE_ID_PRO: ${STRIPE_PRICE_ID_PRO:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+  # Self-hosted MinIO (S3-compatible) for recordings + other media. The LAN
+  # IP (not host.docker.internal) is required here specifically because
+  # LiveKit's egress process runs in the host-networked livekit container
+  # (see below) - it needs an address reachable the same way regardless of
+  # which container's network namespace is asking, and a real LAN IP is the
+  # one address that works from both a bridge network and host networking.
+  AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-fizx-recordings}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-fizx-minio}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-change-me-minio-secret}
+  AWS_S3_ENDPOINT_URL: ${AWS_S3_ENDPOINT_URL:-}
+  AWS_S3_REGION_NAME: ${AWS_S3_REGION_NAME:-us-east-1}
 
 services:
   postgres:
@@ -58,11 +71,15 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     # Published to localhost only - this is what lets the host-networked
-    # livekit container (see below) reach redis via 127.0.0.1:6379, since it
+    # livekit container (see below) reach redis via 127.0.0.1:6380, since it
     # can no longer use the "redis" Docker DNS name once it's off the bridge
-    # network.
+    # network. Host port deliberately isn't 6379 - that's the standard Redis
+    # port, and a stray host-level Redis/Valkey (or another project's own
+    # compose stack) binding it first would otherwise make this fail to
+    # start with "address already in use" for a reason that has nothing to
+    # do with this project.
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -72,6 +89,42 @@ services:
       retries: 10
     networks: [fizx]
 
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-fizx-minio}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-change-me-minio-secret}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [fizx]
+
+  # One-shot: creates the recordings bucket on first boot, then exits. MinIO
+  # itself has no "create this bucket at startup" option, unlike a managed
+  # S3 bucket you'd provision once outside the app.
+  minio-init:
+    image: minio/mc:latest
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+      mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID:-fizx-minio} ${AWS_SECRET_ACCESS_KEY:-change-me-minio-secret} &&
+      mc mb -p local/${AWS_STORAGE_BUCKET_NAME:-fizx-recordings} &&
+      mc anonymous set download local/${AWS_STORAGE_BUCKET_NAME:-fizx-recordings}
+      "
+    networks: [fizx]
+
   backend:
     build:
       context: ./backend
@@ -79,6 +132,12 @@ services:
     environment: *django-env
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Localhost-only, so the host-networked livekit container can deliver
+    # egress webhooks (recording status/file_url) via plain http://localhost
+    # without going through nginx/TLS - same reasoning as redis's port
+    # publish above. Not reachable from the LAN or internet.
+    ports:
+      - "127.0.0.1:8000:8000"
     volumes:
       - media_data:/app/mediafiles
       - static_data:/app/staticfiles
@@ -132,7 +191,6 @@ services:
     # same reasoning already applied to coturn below - removes Docker's NAT
     # from the media path entirely.
     network_mode: host
-    command: --config /etc/livekit.yaml
     environment:
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-devsecret_change_me_in_prod_min_32_chars}"
       # The address LiveKit advertises in ICE candidates. Must be an address
@@ -140,8 +198,58 @@ services:
       # or the server's public IP (with the UDP/TCP ports below forwarded)
       # for a real internet-facing deployment.
       NODE_IP: ${LIVEKIT_NODE_IP}
-    volumes:
-      - ./infra/livekit/livekit.yaml:/etc/livekit.yaml:ro
+      # The full config goes here instead of mounting infra/livekit/livekit.yaml
+      # as a file, because webhook.api_key needs ${LIVEKIT_API_KEY} substituted
+      # into it - compose only does that substitution on this file itself, not
+      # on the contents of a file it mounts as a volume.
+      LIVEKIT_CONFIG: |
+        port: 7880
+        rtc:
+          tcp_port: 7881
+          port_range_start: 50000
+          port_range_end: 50100
+          use_external_ip: false
+        redis:
+          address: 127.0.0.1:6380
+          db: 3
+        room:
+          auto_create: true
+          empty_timeout: 600
+          departure_timeout: 20
+        webhook:
+          api_key: ${LIVEKIT_API_KEY:-devkey}
+          urls:
+            - http://localhost:8000/api/v1/recordings/webhook/
+        logging:
+          level: info
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Recording (egress) is a separate worker process from livekit-server
+  # itself - the server only dispatches egress jobs over redis, a worker
+  # has to actually be running to pick them up and render/upload them, or
+  # start_room_composite_egress just times out with "no response from
+  # servers" forever.
+  livekit-egress:
+    image: livekit/egress:latest
+    restart: unless-stopped
+    # Same reasoning as livekit/coturn above - needs to reach redis and the
+    # livekit server via plain localhost, and subscribes to room media the
+    # same way a participant would.
+    network_mode: host
+    # Chrome (used internally for room-composite layout rendering) needs
+    # this capability to run its sandbox inside a container.
+    cap_add:
+      - SYS_ADMIN
+    environment:
+      EGRESS_CONFIG_BODY: |
+        api_key: ${LIVEKIT_API_KEY:-devkey}
+        api_secret: ${LIVEKIT_API_SECRET:-devsecret_change_me_in_prod_min_32_chars}
+        ws_url: ws://localhost:7880
+        redis:
+          address: 127.0.0.1:6380
+          db: 3
     depends_on:
       redis:
         condition: service_healthy
@@ -196,6 +304,7 @@ services:
       - "443:443"
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/proxy-common.conf:/etc/nginx/proxy-common.conf:ro
       - ./infra/nginx/certs:/etc/nginx/certs:ro
       - static_data:/var/www/static:ro
       - media_data:/var/www/media:ro
@@ -215,3 +324,4 @@ volumes:
   redis_data:
   media_data:
   static_data:
+  minio_data:
