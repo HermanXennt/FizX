@@ -58,11 +58,32 @@ export function useChat(scope: Scope) {
 
   const sendTyping = useCallback(() => send({ type: "typing" }), [send]);
 
+  // Goes over REST, not the WebSocket - the consumer's message.send handler
+  // only takes JSON text, so binary attachments have to go through the same
+  // multipart endpoint the one-time "Import" flows use elsewhere. The sender
+  // is a member of the channel's own WS group, so the broadcasted
+  // message.created event lands back in their own cache the same way it
+  // does for everyone else - no separate optimistic update needed.
+  const sendAttachment = useCallback(
+    async (file: File, content = "") => {
+      const formData = new FormData();
+      formData.append("attachment", file);
+      if (content) formData.append("content", content);
+      if (scope.kind === "meeting") {
+        await chatService.sendMeetingAttachment(scope.id, formData);
+      } else {
+        await chatService.sendWorkspaceAttachment(scope.id, formData);
+      }
+    },
+    [scope.kind, scope.id]
+  );
+
   return {
     channel: channelQuery.data,
     messages: messagesQuery.data ?? [],
     isLoading: channelQuery.isLoading || messagesQuery.isLoading,
     sendMessage,
     sendTyping,
+    sendAttachment,
   };
 }

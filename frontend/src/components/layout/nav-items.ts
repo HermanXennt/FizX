@@ -4,6 +4,7 @@ export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  teacherOnly?: boolean;
 }
 
 export const navItems: NavItem[] = [
@@ -11,5 +12,5 @@ export const navItems: NavItem[] = [
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/team", label: "Team", icon: Users },
   { href: "/recordings", label: "Recordings", icon: Disc },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/analytics", label: "Analytics", icon: BarChart3, teacherOnly: true },
 ];

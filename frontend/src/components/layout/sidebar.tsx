@@ -25,6 +25,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
+  const visibleNavItems = navItems.filter((item) => !item.teacherOnly || user?.account_type === "teacher");
 
   return (
     <aside className="fixed left-6 top-6 bottom-6 z-40 hidden w-20 flex-col items-center justify-between rounded-[28px] border border-black/5 bg-white/95 py-6 shadow-soft-lg lg:flex">
@@ -37,7 +38,7 @@ export function Sidebar() {
         </Link>
 
         <nav className="flex flex-col items-center gap-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const active = pathname === item.href;
             return (
               <Tooltip key={item.href}>

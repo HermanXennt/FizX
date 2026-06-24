@@ -64,31 +64,55 @@ export function ParticipantGrid({
     onlySubscribed: false,
   });
   const screenShareTracks = useTracks([Track.Source.ScreenShare], { onlySubscribed: false });
-  // If the pinned participant leaves, lookups below simply stop matching and
-  // the view falls back to the grid on its own - no need to clear this.
+  // If the pinned/selected participant leaves, lookups below simply stop
+  // matching and the view falls back to the grid/first presenter on its own
+  // - no need to clear these.
   const [pinnedIdentity, setPinnedIdentity] = useState<string | null>(null);
+  const [selectedPresenterIdentity, setSelectedPresenterIdentity] = useState<string | null>(null);
 
   function togglePin(identity: string) {
     setPinnedIdentity((current) => (current === identity ? null : identity));
   }
 
   if (screenShareTracks.length > 0) {
-    const presenterTrack = screenShareTracks[0];
+    const presenterTrack =
+      screenShareTracks.find((t) => t.participant.identity === selectedPresenterIdentity) ?? screenShareTracks[0];
 
     return (
       <div className="flex h-full w-full flex-col gap-4 sm:flex-row">
-        <motion.div
-          layout
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="relative min-h-0 flex-1 overflow-hidden rounded-3xl border border-white/[0.06] bg-[#161618]"
-        >
-          <VideoTrack trackRef={presenterTrack} playsInline className="h-full w-full object-contain" />
-          <div className="absolute bottom-4 left-4 flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-[12px] font-medium text-white/80 backdrop-blur-sm">
-            <MonitorUp className="h-3.5 w-3.5" />
-            {presenterTrack.participant.name || "Someone"} is presenting
-          </div>
-        </motion.div>
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
+          {screenShareTracks.length > 1 && (
+            <div className="flex shrink-0 gap-2 overflow-x-auto scrollbar-none">
+              {screenShareTracks.map((t) => (
+                <button
+                  key={t.participant.identity}
+                  onClick={() => setSelectedPresenterIdentity(t.participant.identity)}
+                  className={cn(
+                    "shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors",
+                    t.participant.identity === presenterTrack.participant.identity
+                      ? "bg-white text-[#111113]"
+                      : "bg-white/[0.08] text-white/70 hover:bg-white/[0.14]"
+                  )}
+                >
+                  {t.participant.name || "Someone"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <motion.div
+            layout
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="relative min-h-0 flex-1 overflow-hidden rounded-3xl border border-white/[0.06] bg-[#161618]"
+          >
+            <VideoTrack trackRef={presenterTrack} playsInline className="h-full w-full object-contain" />
+            <div className="absolute bottom-4 left-4 flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-[12px] font-medium text-white/80 backdrop-blur-sm">
+              <MonitorUp className="h-3.5 w-3.5" />
+              {presenterTrack.participant.name || "Someone"} is presenting
+            </div>
+          </motion.div>
+        </div>
 
         <ThumbnailRail
           tracks={cameraTracks}

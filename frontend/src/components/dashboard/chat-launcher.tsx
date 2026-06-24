@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { MessageSquare, Send, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { MessageSquare, Paperclip, Send, X } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { MessageAttachment } from "@/components/chat/message-attachment";
 import { useChat } from "@/hooks/use-chat";
 import { useWorkspaces } from "@/hooks/use-workspaces";
 import { useAuthStore } from "@/store/auth-store";
@@ -10,14 +11,28 @@ import { stableColor } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 
 function ChatBody({ workspaceId }: { workspaceId: string }) {
-  const { messages, sendMessage } = useChat({ kind: "workspace", id: workspaceId });
+  const { messages, sendMessage, sendAttachment } = useChat({ kind: "workspace", id: workspaceId });
   const myId = useAuthStore((s) => s.user?.id);
   const [draft, setDraft] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleSend() {
     if (!draft.trim()) return;
     sendMessage(draft.trim());
     setDraft("");
+  }
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      await sendAttachment(file);
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -46,14 +61,17 @@ function ChatBody({ workspaceId }: { workspaceId: string }) {
                       {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
-                  <div
-                    className={cn(
-                      "rounded-2xl px-3.5 py-2.5 text-[13.5px] leading-relaxed",
-                      self ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
-                    )}
-                  >
-                    {m.content}
-                  </div>
+                  {m.content && (
+                    <div
+                      className={cn(
+                        "rounded-2xl px-3.5 py-2.5 text-[13.5px] leading-relaxed",
+                        self ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
+                      )}
+                    >
+                      {m.content}
+                    </div>
+                  )}
+                  {!m.is_deleted && <MessageAttachment message={m} tone="light" />}
                 </div>
               </div>
             );
@@ -63,16 +81,27 @@ function ChatBody({ workspaceId }: { workspaceId: string }) {
 
       <div className="border-t border-black/[0.05] p-4">
         <div className="flex items-center gap-2 rounded-full border border-black/[0.06] bg-secondary/40 p-1.5 pl-4">
+          <input ref={fileInputRef} type="file" onChange={handleFileSelect} className="hidden" />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            title="Attach a file"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
+          >
+            <Paperclip className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Message the team…"
+            placeholder={uploading ? "Uploading…" : "Message the team…"}
+            disabled={uploading}
             className="h-8 flex-1 bg-transparent text-[13.5px] outline-none placeholder:text-muted-foreground/70"
           />
           <button
             onClick={handleSend}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+            disabled={uploading}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-40"
           >
             <Send className="h-3.5 w-3.5" strokeWidth={2} />
           </button>

@@ -4,8 +4,12 @@ import type { AuthResponse, User } from "@/types/user";
 export const authService = {
   requestOtp: (phone_number: string) => apiClient.post("/auth/otp/request/", { phone_number }),
 
-  verifyOtp: (payload: { phone_number: string; code: string; first_name?: string }) =>
-    apiClient.post<AuthResponse>("/auth/otp/verify/", payload).then((r) => r.data),
+  verifyOtp: (payload: {
+    phone_number: string;
+    code: string;
+    first_name?: string;
+    account_type?: "teacher" | "student";
+  }) => apiClient.post<AuthResponse>("/auth/otp/verify/", payload).then((r) => r.data),
 
   logout: (refresh: string) => apiClient.post("/auth/logout/", { refresh }),
 

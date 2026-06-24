@@ -12,6 +12,9 @@ export interface ChatMessage {
   sender: PublicUser;
   content: string;
   attachment_url: string | null;
+  attachment_name: string;
+  attachment_size: number | null;
+  attachment_content_type: string;
   reply_to_id: string | null;
   reactions: MessageReactionSummary[];
   is_deleted: boolean;

@@ -14,7 +14,15 @@ function formatElapsed(startedAt: number) {
   return `${m}:${s}`;
 }
 
-export function CallTopbar({ title, startedAt }: { title: string; startedAt: number }) {
+export function CallTopbar({
+  title,
+  startedAt,
+  isRecording,
+}: {
+  title: string;
+  startedAt: number;
+  isRecording?: boolean;
+}) {
   const participants = useParticipants();
   const [elapsed, setElapsed] = useState(() => formatElapsed(startedAt));
 
@@ -38,6 +46,15 @@ export function CallTopbar({ title, startedAt }: { title: string; startedAt: num
         <p className="min-w-0 truncate text-[13px] font-medium sm:text-[13.5px]">{title}</p>
         <span className="h-3.5 w-px shrink-0 bg-white/15" />
         <p className="shrink-0 text-[13px] tabular-nums text-white/55">{elapsed}</p>
+        {isRecording && (
+          <>
+            <span className="h-3.5 w-px shrink-0 bg-white/15" />
+            <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-[#ff6b5e]">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#ff6b5e]" />
+              REC
+            </span>
+          </>
+        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">

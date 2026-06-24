@@ -190,14 +190,16 @@ export function Topbar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button
-          onClick={() => createInstant.mutate({})}
-          disabled={createInstant.isPending}
-          className="h-11 rounded-full bg-primary px-3.5 text-[14px] font-medium text-primary-foreground shadow-soft hover:bg-primary/90 sm:px-5"
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.2} />
-          <span className="hidden sm:inline">{createInstant.isPending ? "Starting…" : "New Meeting"}</span>
-        </Button>
+        {user?.account_type === "teacher" && (
+          <Button
+            onClick={() => createInstant.mutate({})}
+            disabled={createInstant.isPending}
+            className="h-11 rounded-full bg-primary px-3.5 text-[14px] font-medium text-primary-foreground shadow-soft hover:bg-primary/90 sm:px-5"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2.2} />
+            <span className="hidden sm:inline">{createInstant.isPending ? "Starting…" : "New Meeting"}</span>
+          </Button>
+        )}
 
         {/* Sidebar (and its account menu) is hidden below lg, so this fills
             in the only way to reach settings/logout on phone and tablet. */}

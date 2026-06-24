@@ -14,6 +14,8 @@ export interface Workspace {
   config: Record<string, boolean>;
   member_count: number;
   my_role: WorkspaceRole | null;
+  whatsapp_group_id: string;
+  whatsapp_group_name: string;
   created_at: string;
 }
 

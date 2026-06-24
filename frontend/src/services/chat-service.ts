@@ -23,11 +23,17 @@ export const chatService = {
   sendMeetingMessage: (meetingId: string, content: string) =>
     apiClient.post<ChatMessage>(`/chat/meetings/${meetingId}/messages/`, { content }).then((r) => r.data),
 
+  sendMeetingAttachment: (meetingId: string, formData: FormData) =>
+    apiClient.post<ChatMessage>(`/chat/meetings/${meetingId}/messages/`, formData).then((r) => r.data),
+
   workspaceMessages: (workspaceId: string) =>
     apiClient.get<ChatMessage[]>(`/chat/workspaces/${workspaceId}/messages/`).then((r) => r.data),
 
   sendWorkspaceMessage: (workspaceId: string, content: string) =>
     apiClient.post<ChatMessage>(`/chat/workspaces/${workspaceId}/messages/`, { content }).then((r) => r.data),
+
+  sendWorkspaceAttachment: (workspaceId: string, formData: FormData) =>
+    apiClient.post<ChatMessage>(`/chat/workspaces/${workspaceId}/messages/`, formData).then((r) => r.data),
 
   editMessage: (messageId: string, content: string) =>
     apiClient.patch<ChatMessage>(`/chat/messages/${messageId}/`, { content }).then((r) => r.data),

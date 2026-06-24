@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Mic,
@@ -13,6 +13,8 @@ import {
   Sparkles,
   MoreHorizontal,
   PhoneOff,
+  Circle,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PanelTab } from "@/components/call/side-panel";
@@ -20,6 +22,8 @@ import type { PanelTab } from "@/components/call/side-panel";
 function DockButton({
   active,
   toggledOff,
+  disabled,
+  locked,
   onClick,
   children,
   label,
@@ -27,6 +31,8 @@ function DockButton({
 }: {
   active?: boolean;
   toggledOff?: boolean;
+  disabled?: boolean;
+  locked?: boolean;
   onClick?: () => void;
   children: React.ReactNode;
   label: string;
@@ -35,9 +41,11 @@ function DockButton({
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       aria-label={label}
+      title={label}
       className={cn(
-        "relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all duration-200 sm:h-12 sm:w-12",
+        "relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40 sm:h-12 sm:w-12",
         toggledOff
           ? "bg-white text-[#111113] hover:bg-white/90"
           : active
@@ -47,17 +55,24 @@ function DockButton({
       )}
     >
       {children}
+      {locked && (
+        <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#d4493c] text-white">
+          <Lock className="h-2.5 w-2.5" strokeWidth={2.5} />
+        </span>
+      )}
     </button>
   );
 }
 
 function MoreMenuRow({
   active,
+  disabled,
   onClick,
   icon,
   label,
 }: {
   active?: boolean;
+  disabled?: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
@@ -65,8 +80,9 @@ function MoreMenuRow({
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={cn(
-        "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] font-medium transition-colors",
+        "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[13.5px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40",
         active ? "bg-white text-[#111113]" : "text-white/85 hover:bg-white/[0.08]"
       )}
     >
@@ -79,6 +95,8 @@ function MoreMenuRow({
 export function ControlsDock({
   micOn,
   cameraOn,
+  micLocked,
+  cameraLocked,
   screenSharing,
   activePanel,
   onToggleMic,
@@ -86,9 +104,15 @@ export function ControlsDock({
   onToggleScreenShare,
   onTogglePanel,
   onLeave,
+  isHost,
+  isRecording,
+  recordingPending,
+  onToggleRecording,
 }: {
   micOn: boolean;
   cameraOn: boolean;
+  micLocked?: boolean;
+  cameraLocked?: boolean;
   screenSharing: boolean;
   activePanel: PanelTab | null;
   onToggleMic: () => void;
@@ -96,8 +120,30 @@ export function ControlsDock({
   onToggleScreenShare: () => void;
   onTogglePanel: (tab: PanelTab) => void;
   onLeave: () => void;
+  isHost?: boolean;
+  isRecording?: boolean;
+  recordingPending?: boolean;
+  onToggleRecording?: () => void;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
+
+  // LiveKit's egress pipeline takes a few seconds to actually start after
+  // the API call returns - stopping before that lands fails with "Start
+  // signal not received" instead of producing a (very short) recording.
+  const [justStarted, setJustStarted] = useState(false);
+  const wasRecording = useRef(false);
+  useEffect(() => {
+    if (isRecording && !wasRecording.current) {
+      setJustStarted(true);
+      const timer = setTimeout(() => setJustStarted(false), 5000);
+      wasRecording.current = true;
+      return () => clearTimeout(timer);
+    }
+    if (!isRecording) {
+      wasRecording.current = false;
+    }
+  }, [isRecording]);
+  const recordingLocked = Boolean(recordingPending) || (Boolean(isRecording) && justStarted);
 
   function selectFromMore(action: () => void) {
     action();
@@ -125,6 +171,15 @@ export function ControlsDock({
               icon={<MonitorUp className="h-4 w-4" strokeWidth={1.9} />}
               label={screenSharing ? "Stop sharing" : "Share screen"}
             />
+            {isHost && onToggleRecording && (
+              <MoreMenuRow
+                active={isRecording}
+                disabled={recordingLocked}
+                onClick={() => selectFromMore(onToggleRecording)}
+                icon={<Circle className="h-4 w-4" strokeWidth={1.9} fill={isRecording ? "#d4493c" : "none"} />}
+                label={isRecording ? (justStarted ? "Starting…" : "Stop recording") : "Start recording"}
+              />
+            )}
             <MoreMenuRow
               active={activePanel === "participants"}
               onClick={() => selectFromMore(() => onTogglePanel("participants"))}
@@ -159,7 +214,13 @@ export function ControlsDock({
         transition={{ duration: 0.4, ease: "easeOut", delay: 0.1 }}
         className="flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#1c1c1e]/95 p-1.5 shadow-float backdrop-blur-md sm:gap-2 sm:p-2"
       >
-        <DockButton label="Toggle microphone" toggledOff={!micOn} onClick={onToggleMic}>
+        <DockButton
+          label={micLocked ? "Microphone disabled by host" : "Toggle microphone"}
+          toggledOff={!micOn}
+          disabled={micLocked}
+          locked={micLocked}
+          onClick={onToggleMic}
+        >
           {micOn ? (
             <Mic className="h-[18px] w-[18px]" strokeWidth={1.9} />
           ) : (
@@ -167,7 +228,13 @@ export function ControlsDock({
           )}
         </DockButton>
 
-        <DockButton label="Toggle camera" toggledOff={!cameraOn} onClick={onToggleCamera}>
+        <DockButton
+          label={cameraLocked ? "Camera disabled by host" : "Toggle camera"}
+          toggledOff={!cameraOn}
+          disabled={cameraLocked}
+          locked={cameraLocked}
+          onClick={onToggleCamera}
+        >
           {cameraOn ? (
             <Video className="h-[18px] w-[18px]" strokeWidth={1.9} />
           ) : (
@@ -180,6 +247,18 @@ export function ControlsDock({
           <DockButton label="Share screen" active={screenSharing} onClick={onToggleScreenShare}>
             <MonitorUp className="h-[18px] w-[18px]" strokeWidth={1.9} />
           </DockButton>
+
+          {isHost && onToggleRecording && (
+            <DockButton
+              label={isRecording ? (justStarted ? "Starting…" : "Stop recording") : "Start recording"}
+              active={isRecording}
+              disabled={recordingLocked}
+              onClick={onToggleRecording}
+              className={isRecording ? "bg-[#d4493c]/90 text-white" : undefined}
+            >
+              <Circle className="h-[18px] w-[18px]" strokeWidth={1.9} fill={isRecording ? "currentColor" : "none"} />
+            </DockButton>
+          )}
 
           <div className="mx-1 h-7 w-px bg-white/[0.08]" />
 

@@ -1,4 +1,5 @@
 export type PresenceStatus = "online" | "away" | "do_not_disturb" | "in_call" | "offline";
+export type AccountType = "teacher" | "student";
 
 export interface User {
   id: string;
@@ -8,6 +9,7 @@ export interface User {
   full_name: string;
   initials: string;
   avatar_url: string | null;
+  account_type: AccountType;
   presence_status: PresenceStatus;
   timezone: string;
   created_at: string;

@@ -16,8 +16,12 @@ export function useVerifyOtp() {
   const setSession = useAuthStore((s) => s.setSession);
 
   return useMutation({
-    mutationFn: (payload: { phone_number: string; code: string; first_name?: string }) =>
-      authService.verifyOtp(payload),
+    mutationFn: (payload: {
+      phone_number: string;
+      code: string;
+      first_name?: string;
+      account_type?: "teacher" | "student";
+    }) => authService.verifyOtp(payload),
     onSuccess: (data) => {
       setSession(data);
       router.push("/");

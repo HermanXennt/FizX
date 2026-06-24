@@ -34,7 +34,9 @@ export interface MeetingParticipant {
   joined_at: string | null;
   left_at: string | null;
   is_muted: boolean;
+  camera_disabled: boolean;
   hand_raised: boolean;
+  has_spoken: boolean;
 }
 
 export interface JoinMeetingResponse {

@@ -24,3 +24,12 @@ export interface UserStats {
   total_minutes_in_meetings: number;
   activity_by_day: DayCount[];
 }
+
+export interface StudentRosterEntry {
+  user_id: string;
+  name: string;
+  meetings_attended: number;
+  total_meetings: number;
+  total_minutes: number;
+  last_attended: string | null;
+}

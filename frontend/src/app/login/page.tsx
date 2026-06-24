@@ -1,16 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkle } from "lucide-react";
+import { Sparkle, GraduationCap, Presentation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRequestOtp, useVerifyOtp } from "@/hooks/use-auth";
 import { extractErrorMessage } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
+import type { AccountType } from "@/types/user";
 
 export default function LoginPage() {
   const [step, setStep] = useState<"phone" | "code">("phone");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [firstName, setFirstName] = useState("");
+  const [accountType, setAccountType] = useState<AccountType | "">("");
   const [code, setCode] = useState("");
 
   const requestOtp = useRequestOtp();
@@ -23,7 +26,12 @@ export default function LoginPage() {
 
   function handleVerify(e: React.FormEvent) {
     e.preventDefault();
-    verifyOtp.mutate({ phone_number: phoneNumber, code, first_name: firstName });
+    verifyOtp.mutate({
+      phone_number: phoneNumber,
+      code,
+      first_name: firstName,
+      account_type: accountType || undefined,
+    });
   }
 
   return (
@@ -70,6 +78,40 @@ export default function LoginPage() {
                 placeholder="Jane"
                 className="h-11 rounded-2xl border-black/10"
               />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[13px] font-medium text-foreground/80">
+                I am a… <span className="text-muted-foreground">(only needed if you&apos;re new)</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setAccountType("teacher")}
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 rounded-2xl border px-3 py-3 transition-colors",
+                    accountType === "teacher"
+                      ? "border-primary bg-primary/5 text-foreground"
+                      : "border-black/10 text-muted-foreground hover:bg-accent"
+                  )}
+                >
+                  <Presentation className="h-4.5 w-4.5" strokeWidth={2} />
+                  <span className="text-[13px] font-medium">Teacher</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccountType("student")}
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 rounded-2xl border px-3 py-3 transition-colors",
+                    accountType === "student"
+                      ? "border-primary bg-primary/5 text-foreground"
+                      : "border-black/10 text-muted-foreground hover:bg-accent"
+                  )}
+                >
+                  <GraduationCap className="h-4.5 w-4.5" strokeWidth={2} />
+                  <span className="text-[13px] font-medium">Student</span>
+                </button>
+              </div>
             </div>
 
             {requestOtp.isError && (

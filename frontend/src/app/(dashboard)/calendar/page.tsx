@@ -2,7 +2,9 @@
 
 import { Topbar } from "@/components/layout/topbar";
 import { useMeetings } from "@/hooks/use-meetings";
+import { useWorkspaces } from "@/hooks/use-workspaces";
 import { AvatarStack } from "@/components/dashboard/avatar-stack";
+import { ScheduleMeetingDialog } from "@/components/dashboard/schedule-meeting-dialog";
 import type { Meeting } from "@/types/meeting";
 
 function groupByDate(meetings: Meeting[]): Record<string, Meeting[]> {
@@ -18,6 +20,9 @@ function groupByDate(meetings: Meeting[]): Record<string, Meeting[]> {
 
 export default function CalendarPage() {
   const { data: meetings, isLoading } = useMeetings({ status: "scheduled" });
+  const { data: workspaces } = useWorkspaces();
+  const workspace = workspaces?.[0];
+  const isTeacher = workspace?.my_role === "owner" || workspace?.my_role === "admin";
   const groups = groupByDate(
     [...(meetings ?? [])].sort(
       (a, b) => new Date(a.scheduled_start!).getTime() - new Date(b.scheduled_start!).getTime()
@@ -28,6 +33,12 @@ export default function CalendarPage() {
   return (
     <>
       <Topbar title="Calendar" subtitle="All your upcoming scheduled meetings." />
+
+      {isTeacher && workspace && (
+        <div className="-mt-4 mb-6 flex justify-end sm:-mt-6">
+          <ScheduleMeetingDialog workspaceId={workspace.id} />
+        </div>
+      )}
 
       <div className="flex flex-col gap-6">
         {!isLoading && dateKeys.length === 0 && (

@@ -4,14 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { navItems } from "@/components/layout/nav-items";
+import { useAuthStore } from "@/store/auth-store";
 import { cn } from "@/lib/utils";
 
 export function MobileTabBar() {
   const pathname = usePathname();
+  const user = useAuthStore((s) => s.user);
+  const visibleNavItems = navItems.filter((item) => !item.teacherOnly || user?.account_type === "teacher");
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-black/5 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
-      {navItems.map((item) => {
+      {visibleNavItems.map((item) => {
         const active = pathname === item.href;
         return (
           <Link

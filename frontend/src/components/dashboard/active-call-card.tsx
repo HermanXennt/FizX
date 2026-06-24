@@ -5,7 +5,8 @@ import { PhoneOff, Plus, Video } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { AvatarStack } from "@/components/dashboard/avatar-stack";
-import { useCreateInstantMeeting, useMeetings } from "@/hooks/use-meetings";
+import { useCreateInstantMeeting, useEndMeeting, useMeetings } from "@/hooks/use-meetings";
+import { useAuthStore } from "@/store/auth-store";
 
 function timeAgo(iso: string | null): string {
   if (!iso) return "";
@@ -16,8 +17,10 @@ function timeAgo(iso: string | null): string {
 }
 
 export function ActiveCallCard() {
+  const user = useAuthStore((s) => s.user);
   const { data: liveMeetings } = useMeetings({ status: "live" });
   const createInstant = useCreateInstantMeeting();
+  const endMeeting = useEndMeeting();
   const liveMeeting = liveMeetings?.[0];
 
   if (!liveMeeting) {
@@ -31,20 +34,28 @@ export function ActiveCallCard() {
         <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-[20px] font-semibold tracking-tight">No active calls right now</h3>
-            <p className="mt-1 text-[14px] text-white/60">Start an instant meeting to get going.</p>
+            <p className="mt-1 text-[14px] text-white/60">
+              {user?.account_type === "teacher"
+                ? "Start an instant meeting to get going."
+                : "Your teacher hasn't started a call yet."}
+            </p>
           </div>
-          <Button
-            onClick={() => createInstant.mutate({})}
-            disabled={createInstant.isPending}
-            className="h-12 rounded-full bg-white px-6 text-[14px] font-medium text-[#111113] shadow-soft hover:bg-white/90"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.1} />
-            {createInstant.isPending ? "Starting…" : "New Meeting"}
-          </Button>
+          {user?.account_type === "teacher" && (
+            <Button
+              onClick={() => createInstant.mutate({})}
+              disabled={createInstant.isPending}
+              className="h-12 rounded-full bg-white px-6 text-[14px] font-medium text-[#111113] shadow-soft hover:bg-white/90"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.1} />
+              {createInstant.isPending ? "Starting…" : "New Meeting"}
+            </Button>
+          )}
         </div>
       </motion.div>
     );
   }
+
+  const isHost = user?.id === liveMeeting.host.id;
 
   return (
     <motion.div
@@ -78,13 +89,17 @@ export function ActiveCallCard() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-12 w-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10"
-          >
-            <PhoneOff className="h-[18px] w-[18px]" strokeWidth={1.9} />
-          </Button>
+          {isHost && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => endMeeting.mutate(liveMeeting.id)}
+              disabled={endMeeting.isPending}
+              className="h-12 w-12 rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10"
+            >
+              <PhoneOff className="h-[18px] w-[18px]" strokeWidth={1.9} />
+            </Button>
+          )}
           <Button
             render={<Link href={`/call/${liveMeeting.id}`} />}
             nativeButton={false}

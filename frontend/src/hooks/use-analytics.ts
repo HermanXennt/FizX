@@ -14,3 +14,11 @@ export function useWorkspaceOverview(workspaceId: string | undefined) {
     enabled: Boolean(workspaceId),
   });
 }
+
+export function useWorkspaceStudentRoster(workspaceId: string | undefined) {
+  return useQuery({
+    queryKey: ["analytics", "workspace", workspaceId, "students"],
+    queryFn: () => analyticsService.workspaceStudentRoster(workspaceId as string),
+    enabled: Boolean(workspaceId),
+  });
+}

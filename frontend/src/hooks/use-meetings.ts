@@ -65,6 +65,14 @@ export function useCancelMeeting() {
   });
 }
 
+export function useEndMeeting() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => meetingService.end(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["meetings"] }),
+  });
+}
+
 export function useJoinMeeting() {
   return useMutation({
     mutationFn: ({ id, password }: { id: string; password?: string }) => meetingService.join(id, password),
@@ -99,6 +107,26 @@ export function useMuteAll(meetingId: string) {
   return useMutation({ mutationFn: () => meetingService.muteAll(meetingId) });
 }
 
+export function useSetParticipantMedia(meetingId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      participantId,
+      ...payload
+    }: { participantId: string; mic_enabled?: boolean; camera_enabled?: boolean }) =>
+      meetingService.setParticipantMedia(meetingId, participantId, payload),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["meetings", meetingId, "participants"] }),
+  });
+}
+
+export function useSyncPermissions(meetingId: string) {
+  return useMutation({ mutationFn: () => meetingService.syncPermissions(meetingId) });
+}
+
 export function useRaiseHand(meetingId: string) {
   return useMutation({ mutationFn: (raised: boolean) => meetingService.raiseHand(meetingId, raised) });
+}
+
+export function useMarkSpoken(meetingId: string) {
+  return useMutation({ mutationFn: () => meetingService.markSpoken(meetingId) });
 }

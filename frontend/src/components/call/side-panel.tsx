@@ -2,10 +2,31 @@
 
 import { useParticipants } from "@livekit/components-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Send, Sparkles, ListChecks, Search, Mic, MicOff, Check, UserX } from "lucide-react";
-import { useState } from "react";
+import {
+  X,
+  Send,
+  Sparkles,
+  ListChecks,
+  Search,
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  MonitorUp,
+  Check,
+  UserX,
+  Paperclip,
+} from "lucide-react";
+import { useRef, useState } from "react";
+import { MessageAttachment } from "@/components/chat/message-attachment";
 import { useChat } from "@/hooks/use-chat";
-import { useAdmitParticipant, useDenyParticipant, useMeetingParticipants } from "@/hooks/use-meetings";
+import {
+  useAdmitParticipant,
+  useDenyParticipant,
+  useMeetingParticipants,
+  useRemoveParticipant,
+  useSetParticipantMedia,
+} from "@/hooks/use-meetings";
 import { useAuthStore } from "@/store/auth-store";
 import { stableColor } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
@@ -82,14 +103,28 @@ export function SidePanel({
 }
 
 function ChatTab({ meetingId }: { meetingId: string }) {
-  const { messages, sendMessage } = useChat({ kind: "meeting", id: meetingId });
+  const { messages, sendMessage, sendAttachment } = useChat({ kind: "meeting", id: meetingId });
   const myId = useAuthStore((s) => s.user?.id);
   const [draft, setDraft] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleSend() {
     if (!draft.trim()) return;
     sendMessage(draft.trim());
     setDraft("");
+  }
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      await sendAttachment(file);
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -112,14 +147,25 @@ function ChatTab({ meetingId }: { meetingId: string }) {
                     {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
-                <div
-                  className={cn(
-                    "rounded-2xl px-3 py-2 text-[13px] leading-relaxed",
-                    self ? "bg-white text-[#111113]" : "bg-white/[0.07] text-white/85"
-                  )}
-                >
-                  {m.is_deleted ? <span className="italic text-white/40">message deleted</span> : m.content}
-                </div>
+                {m.is_deleted ? (
+                  <div className="rounded-2xl bg-white/[0.07] px-3 py-2 text-[13px] italic text-white/40">
+                    message deleted
+                  </div>
+                ) : (
+                  <>
+                    {m.content && (
+                      <div
+                        className={cn(
+                          "rounded-2xl px-3 py-2 text-[13px] leading-relaxed",
+                          self ? "bg-white text-[#111113]" : "bg-white/[0.07] text-white/85"
+                        )}
+                      >
+                        {m.content}
+                      </div>
+                    )}
+                    <MessageAttachment message={m} tone="dark" />
+                  </>
+                )}
               </div>
             </div>
           );
@@ -130,16 +176,27 @@ function ChatTab({ meetingId }: { meetingId: string }) {
       </div>
 
       <div className="sticky bottom-0 mt-4 flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.05] p-1.5 pl-3.5">
+        <input ref={fileInputRef} type="file" onChange={handleFileSelect} className="hidden" />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          title="Attach a file"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/50 hover:bg-white/[0.08] hover:text-white disabled:opacity-40"
+        >
+          <Paperclip className="h-3.5 w-3.5" strokeWidth={2} />
+        </button>
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder="Send a message…"
+          placeholder={uploading ? "Uploading…" : "Send a message…"}
+          disabled={uploading}
           className="h-8 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-white/35"
         />
         <button
           onClick={handleSend}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[#111113]"
+          disabled={uploading}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[#111113] disabled:opacity-40"
         >
           <Send className="h-3.5 w-3.5" strokeWidth={2} />
         </button>
@@ -153,6 +210,9 @@ function ParticipantsTab({ meetingId, isHost }: { meetingId: string; isHost: boo
   const { data: dbParticipants } = useMeetingParticipants(meetingId, { pollMs: isHost ? 5000 : undefined });
   const admit = useAdmitParticipant(meetingId);
   const deny = useDenyParticipant(meetingId);
+  const setMedia = useSetParticipantMedia(meetingId);
+  const remove = useRemoveParticipant(meetingId);
+  const myId = useAuthStore((s) => s.user?.id);
 
   const waiting = isHost ? (dbParticipants ?? []).filter((p) => p.status === "waiting") : [];
 
@@ -198,26 +258,76 @@ function ParticipantsTab({ meetingId, isHost }: { meetingId: string; isHost: boo
       )}
 
       <p className="mb-1 px-1 text-[11.5px] font-medium text-white/40">IN CALL · {liveParticipants.length}</p>
-      {liveParticipants.map((p) => (
-        <div key={p.identity} className="flex items-center gap-3 rounded-2xl px-2 py-2.5 hover:bg-white/[0.05]">
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-semibold text-white"
-            style={{ backgroundColor: stableColor(p.identity) }}
-          >
-            {(p.name || "?").slice(0, 2).toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium text-white/85">{p.name || "Guest"}</p>
-          </div>
-          <div className="flex items-center gap-2 text-white/40">
-            {p.isMicrophoneEnabled ? (
-              <Mic className="h-3.5 w-3.5" strokeWidth={1.9} />
+      {liveParticipants.map((p) => {
+        const dbParticipant = dbParticipants?.find((dp) => dp.user.id === p.identity);
+        const canModerate = isHost && p.identity !== myId && dbParticipant;
+
+        return (
+          <div key={p.identity} className="flex items-center gap-3 rounded-2xl px-2 py-2.5 hover:bg-white/[0.05]">
+            <div
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white"
+              style={{ backgroundColor: stableColor(p.identity) }}
+            >
+              {(p.name || "?").slice(0, 2).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-medium text-white/85">{p.name || "Guest"}</p>
+            </div>
+
+            {p.isScreenShareEnabled && <MonitorUp className="h-3.5 w-3.5 shrink-0 text-emerald-400" strokeWidth={1.9} />}
+
+            {canModerate ? (
+              <div className="flex items-center gap-1.5 text-white/50">
+                <button
+                  onClick={() => setMedia.mutate({ participantId: dbParticipant.id, mic_enabled: dbParticipant.is_muted })}
+                  title={dbParticipant.is_muted ? "Allow microphone" : "Disable microphone"}
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-full hover:bg-white/[0.08]",
+                    dbParticipant.is_muted && "text-red-400"
+                  )}
+                >
+                  {dbParticipant.is_muted ? (
+                    <MicOff className="h-3.5 w-3.5" strokeWidth={1.9} />
+                  ) : (
+                    <Mic className="h-3.5 w-3.5" strokeWidth={1.9} />
+                  )}
+                </button>
+                <button
+                  onClick={() =>
+                    setMedia.mutate({ participantId: dbParticipant.id, camera_enabled: dbParticipant.camera_disabled })
+                  }
+                  title={dbParticipant.camera_disabled ? "Allow camera" : "Disable camera"}
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-full hover:bg-white/[0.08]",
+                    dbParticipant.camera_disabled && "text-red-400"
+                  )}
+                >
+                  {dbParticipant.camera_disabled ? (
+                    <VideoOff className="h-3.5 w-3.5" strokeWidth={1.9} />
+                  ) : (
+                    <Video className="h-3.5 w-3.5" strokeWidth={1.9} />
+                  )}
+                </button>
+                <button
+                  onClick={() => remove.mutate(dbParticipant.id)}
+                  title="Remove from call"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-white/40 hover:bg-red-500/15 hover:text-red-400"
+                >
+                  <UserX className="h-3.5 w-3.5" strokeWidth={1.9} />
+                </button>
+              </div>
             ) : (
-              <MicOff className="h-3.5 w-3.5" strokeWidth={1.9} />
+              <div className="flex items-center gap-2 text-white/40">
+                {p.isMicrophoneEnabled ? (
+                  <Mic className="h-3.5 w-3.5" strokeWidth={1.9} />
+                ) : (
+                  <MicOff className="h-3.5 w-3.5" strokeWidth={1.9} />
+                )}
+              </div>
             )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

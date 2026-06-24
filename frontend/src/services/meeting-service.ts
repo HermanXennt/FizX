@@ -64,6 +64,16 @@ export const meetingService = {
 
   muteAll: (id: string) => apiClient.post<{ muted_identities: string[] }>(`/meetings/${id}/mute_all/`).then((r) => r.data),
 
+  setParticipantMedia: (id: string, participantId: string, payload: { mic_enabled?: boolean; camera_enabled?: boolean }) =>
+    apiClient
+      .patch<MeetingParticipant>(`/meetings/${id}/participants/${participantId}/media/`, payload)
+      .then((r) => r.data),
+
+  syncPermissions: (id: string) => apiClient.post(`/meetings/${id}/sync-permissions/`),
+
   raiseHand: (id: string, raised: boolean) =>
     apiClient.post<MeetingParticipant>(`/meetings/${id}/hand/`, { raised }).then((r) => r.data),
+
+  markSpoken: (id: string) =>
+    apiClient.post<MeetingParticipant>(`/meetings/${id}/mark-spoken/`).then((r) => r.data),
 };
