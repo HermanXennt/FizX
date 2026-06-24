@@ -148,16 +148,59 @@ AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME", default="")
 if AWS_STORAGE_BUCKET_NAME:
     AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
+    # The endpoint the backend container itself talks to for every S3 API
+    # call (upload, HeadObject, etc.) - must be reachable *from inside the
+    # container*. On a cloud box (EC2) the instance's own public IP is often
+    # NOT reachable from inside itself (hairpin NAT isn't guaranteed), so
+    # this needs to be the docker-internal address (http://minio:9000) in
+    # that case, not the public IP - using the public IP here produced a
+    # ConnectTimeoutError for every file upload (chat attachments, avatars)
+    # in production until this was split from AWS_S3_CUSTOM_DOMAIN below.
     AWS_S3_ENDPOINT_URL = env("AWS_S3_ENDPOINT_URL", default=None)
+    # The endpoint LiveKit's egress process uploads recordings to - a
+    # *third* distinct address, because egress runs with network_mode: host
+    # (see docker-compose.yml) and so isn't on the bridge network where
+    # AWS_S3_ENDPOINT_URL's docker-internal hostname resolves. Same
+    # situation as redis's address there: a host-networked process reaches
+    # another container via its published port on 127.0.0.1, not by Docker
+    # DNS name and not by the box's public IP (also unreachable from a
+    # process on the box itself). Falls back to AWS_S3_ENDPOINT_URL, correct
+    # when nothing is host-networked (egress doesn't need to be, just is
+    # here for the same reason coturn/livekit-server are - see their
+    # comments in docker-compose.yml).
+    AWS_S3_EGRESS_ENDPOINT_URL = env("AWS_S3_EGRESS_ENDPOINT_URL", default=None) or AWS_S3_ENDPOINT_URL
+    # The host (no scheme - "1.2.3.4:9000", not "http://1.2.3.4:9000") put
+    # into URLs handed to browsers - needs to be externally reachable,
+    # unlike AWS_S3_ENDPOINT_URL above. Unset by default, which makes
+    # django-storages fall back to deriving the host from
+    # AWS_S3_ENDPOINT_URL - correct whenever the two coincide (local dev:
+    # the LAN IP is reachable both from the host's browser and from its own
+    # containers).
+    AWS_S3_CUSTOM_DOMAIN = env("AWS_S3_CUSTOM_DOMAIN", default=None)
+    AWS_S3_URL_PROTOCOL = env("AWS_S3_URL_PROTOCOL", default="http:")
     AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="us-east-1")
     AWS_DEFAULT_ACL = None
     AWS_S3_FILE_OVERWRITE = False
-    AWS_QUERYSTRING_AUTH = True
+    # The bucket is already anonymous-read (see docker-compose.yml's
+    # minio-init `mc anonymous set download`), so presigned auth query
+    # strings are redundant - and would be actively wrong whenever
+    # AWS_S3_CUSTOM_DOMAIN differs from AWS_S3_ENDPOINT_URL's host, since
+    # the signature is computed against the latter.
+    AWS_QUERYSTRING_AUTH = env.bool("AWS_QUERYSTRING_AUTH", default=False)
     AWS_QUERYSTRING_EXPIRE = 3600
     STORAGES = {
         "default": {"BACKEND": "storages.backends.s3.S3Storage"},
         "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
     }
+    # Recordings build their own public URL by hand (see
+    # apps/recordings/services.py) rather than going through this storage
+    # backend's .url(), since LiveKit egress - not Django - writes that
+    # file. This is the same "externally-reachable base URL" the storage
+    # backend itself uses, computed once here instead of duplicating the
+    # custom-domain-vs-endpoint fallback logic at the call site.
+    PUBLIC_S3_BASE_URL = (
+        f"{AWS_S3_URL_PROTOCOL}//{AWS_S3_CUSTOM_DOMAIN}" if AWS_S3_CUSTOM_DOMAIN else AWS_S3_ENDPOINT_URL
+    )
 else:
     STORAGES = {
         "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},

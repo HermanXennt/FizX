@@ -34,11 +34,13 @@ function isSourceLocked(sources: TrackSource[] | undefined, source: TrackSource)
 function CallShell({
   meeting,
   onLeave,
+  onEndMeeting,
   mediaError,
   onDismissMediaError,
 }: {
   meeting: Meeting;
   onLeave: () => void;
+  onEndMeeting: () => void;
   mediaError: MediaDeviceFailure | null;
   onDismissMediaError: () => void;
 }) {
@@ -176,6 +178,7 @@ function CallShell({
           onToggleScreenShare={handleToggleScreenShare}
           onTogglePanel={(tab) => setActivePanel((current) => (current === tab ? null : tab))}
           onLeave={onLeave}
+          onEndMeeting={onEndMeeting}
           isHost={isHost}
           isRecording={Boolean(activeRecording)}
           recordingPending={recordingPending}
@@ -219,6 +222,15 @@ export function CallRoom({
     router.push("/");
   }
 
+  async function handleEndMeeting() {
+    try {
+      await meetingService.end(meeting.id);
+    } catch {
+      // already ended server-side - not fatal, still navigate away
+    }
+    router.push("/");
+  }
+
   if (iceServersLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[#0b0b0c]">
@@ -248,6 +260,7 @@ export function CallRoom({
       <CallShell
         meeting={meeting}
         onLeave={handleLeave}
+        onEndMeeting={handleEndMeeting}
         mediaError={mediaError}
         onDismissMediaError={() => setMediaError(null)}
       />

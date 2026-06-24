@@ -250,12 +250,12 @@ class LiveKitService:
                     secret=settings.AWS_SECRET_ACCESS_KEY,
                     region=settings.AWS_S3_REGION_NAME,
                     bucket=settings.AWS_STORAGE_BUCKET_NAME,
-                    endpoint=settings.AWS_S3_ENDPOINT_URL or "",
+                    endpoint=settings.AWS_S3_EGRESS_ENDPOINT_URL or "",
                     # A custom endpoint (MinIO, addressed by raw IP here) can't
                     # do virtual-hosted-style addressing (bucket.endpoint) -
                     # "bucket.1.2.3.4" isn't a resolvable hostname. Real AWS S3
                     # (no custom endpoint) keeps the virtual-hosted default.
-                    force_path_style=bool(settings.AWS_S3_ENDPOINT_URL),
+                    force_path_style=bool(settings.AWS_S3_EGRESS_ENDPOINT_URL),
                 ),
             )
         return lk_api.EncodedFileOutput(filepath=filepath)

@@ -104,6 +104,7 @@ export function ControlsDock({
   onToggleScreenShare,
   onTogglePanel,
   onLeave,
+  onEndMeeting,
   isHost,
   isRecording,
   recordingPending,
@@ -120,12 +121,14 @@ export function ControlsDock({
   onToggleScreenShare: () => void;
   onTogglePanel: (tab: PanelTab) => void;
   onLeave: () => void;
+  onEndMeeting?: () => void;
   isHost?: boolean;
   isRecording?: boolean;
   recordingPending?: boolean;
   onToggleRecording?: () => void;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const [leaveMenuOpen, setLeaveMenuOpen] = useState(false);
 
   // LiveKit's egress pipeline takes a few seconds to actually start after
   // the API call returns - stopping before that lands fails with "Start
@@ -298,14 +301,49 @@ export function ControlsDock({
           <MoreHorizontal className="h-[18px] w-[18px]" strokeWidth={1.9} />
         </DockButton>
 
-        <button
-          onClick={onLeave}
-          aria-label="Leave call"
-          className="flex h-11 items-center gap-2 rounded-full bg-[#d4493c] px-3 text-[13px] font-medium text-white transition-colors duration-200 hover:bg-[#c23f33] sm:h-12 sm:px-4 sm:text-[13.5px]"
-        >
-          <PhoneOff className="h-[17px] w-[17px]" strokeWidth={2} />
-          <span className="hidden sm:inline">Leave</span>
-        </button>
+        <div className="relative">
+          {isHost && onEndMeeting && leaveMenuOpen && (
+            <>
+              <button
+                aria-label="Close menu"
+                onClick={() => setLeaveMenuOpen(false)}
+                className="fixed inset-0 z-40"
+              />
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                className="absolute bottom-full right-0 z-50 mb-3 flex w-60 flex-col gap-0.5 rounded-2xl border border-white/[0.08] bg-[#1c1c1e] p-1.5 shadow-float"
+              >
+                <MoreMenuRow
+                  onClick={() => {
+                    setLeaveMenuOpen(false);
+                    onEndMeeting();
+                  }}
+                  icon={<PhoneOff className="h-4 w-4" strokeWidth={1.9} />}
+                  label="End meeting for everyone"
+                />
+                <MoreMenuRow
+                  onClick={() => {
+                    setLeaveMenuOpen(false);
+                    onLeave();
+                  }}
+                  icon={<PhoneOff className="h-4 w-4" strokeWidth={1.9} />}
+                  label="Leave (others stay in the call)"
+                />
+              </motion.div>
+            </>
+          )}
+
+          <button
+            onClick={() => (isHost && onEndMeeting ? setLeaveMenuOpen((o) => !o) : onLeave())}
+            aria-label={isHost && onEndMeeting ? "Leave or end call" : "Leave call"}
+            className="flex h-11 items-center gap-2 rounded-full bg-[#d4493c] px-3 text-[13px] font-medium text-white transition-colors duration-200 hover:bg-[#c23f33] sm:h-12 sm:px-4 sm:text-[13.5px]"
+          >
+            <PhoneOff className="h-[17px] w-[17px]" strokeWidth={2} />
+            <span className="hidden sm:inline">Leave</span>
+          </button>
+        </div>
       </motion.div>
     </div>
   );

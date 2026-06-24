@@ -57,14 +57,17 @@ class RecordingService:
 
         if egress_info.file_results:
             file_result = egress_info.file_results[0]
-            if settings.AWS_S3_ENDPOINT_URL:
+            if settings.PUBLIC_S3_BASE_URL:
                 # LiveKit's reported `location` assumes virtual-hosted-style
                 # https regardless of the endpoint scheme it was actually
                 # given - wrong for a plain-http custom S3 endpoint like
                 # MinIO. We already know the real bucket/key, so build the
                 # URL from our own settings instead of trusting it.
+                # PUBLIC_S3_BASE_URL (not AWS_S3_ENDPOINT_URL) specifically,
+                # since the latter may be a docker-internal address the
+                # backend container uses to reach MinIO but a browser can't.
                 recording.file_url = (
-                    f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_result.filename}"
+                    f"{settings.PUBLIC_S3_BASE_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_result.filename}"
                 )
             else:
                 recording.file_url = file_result.location or file_result.filename
