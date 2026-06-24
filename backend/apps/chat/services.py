@@ -64,7 +64,14 @@ class MessageService:
             raise ValidationError(detail="Cannot reply to a message from another channel.")
 
         return Message.objects.create(
-            channel=channel, sender=sender, content=content, attachment=attachment, reply_to=reply_to
+            channel=channel,
+            sender=sender,
+            content=content,
+            attachment=attachment,
+            attachment_name=attachment.name if attachment else "",
+            attachment_size=attachment.size if attachment else None,
+            attachment_content_type=getattr(attachment, "content_type", "") if attachment else "",
+            reply_to=reply_to,
         )
 
     def edit_message(self, *, message: Message, user, content: str) -> Message:
@@ -84,8 +91,21 @@ class MessageService:
             raise PermissionDeniedError(detail="You can only delete your own messages.")
         message.content = ""
         message.attachment = None
+        message.attachment_name = ""
+        message.attachment_size = None
+        message.attachment_content_type = ""
         message.deleted_at = timezone.now()
-        message.save(update_fields=["content", "attachment", "deleted_at", "updated_at"])
+        message.save(
+            update_fields=[
+                "content",
+                "attachment",
+                "attachment_name",
+                "attachment_size",
+                "attachment_content_type",
+                "deleted_at",
+                "updated_at",
+            ]
+        )
         return message
 
     def toggle_reaction(self, *, message: Message, user, emoji: str) -> dict:

@@ -15,12 +15,14 @@ from .repositories import MeetingParticipantRepository, MeetingRepository
 from .serializers import (
     ChangeParticipantRoleSerializer,
     CreateInstantMeetingSerializer,
+    InviteToMeetingSerializer,
     JoinMeetingResponseSerializer,
     JoinMeetingSerializer,
     MeetingParticipantSerializer,
     MeetingSerializer,
     ScheduleMeetingSerializer,
     SetHandRaisedSerializer,
+    SetParticipantMediaSerializer,
 )
 from .services import MeetingService
 
@@ -45,14 +47,16 @@ class MeetingViewSet(viewsets.ModelViewSet):
             "start",
             "end",
             "cancel",
+            "invite",
             "mute_all",
             "admit_participant",
             "deny_participant",
             "remove_participant",
             "change_participant_role",
+            "set_participant_media",
         ):
             return [IsAuthenticated(), IsMeetingHostOrCoHost()]
-        if self.action in ("leave", "token", "raise_hand", "participants"):
+        if self.action in ("leave", "token", "raise_hand", "participants", "mark_spoken", "sync_permissions"):
             return [IsAuthenticated(), IsMeetingParticipant()]
         return super().get_permissions()
 
@@ -107,6 +111,16 @@ class MeetingViewSet(viewsets.ModelViewSet):
     def end(self, request, pk=None):
         meeting = MeetingService().end_meeting(meeting=self.get_object(), user=request.user)
         return Response(MeetingSerializer(meeting, context=self.get_serializer_context()).data)
+
+    @action(detail=True, methods=["post"])
+    @extend_schema(request=InviteToMeetingSerializer, responses={204: None})
+    def invite(self, request, pk=None):
+        serializer = InviteToMeetingSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        MeetingService().invite_to_meeting(
+            meeting=self.get_object(), host=request.user, user_ids=serializer.validated_data["user_ids"]
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post"])
     @extend_schema(request=None, responses={200: MeetingSerializer})
@@ -206,6 +220,31 @@ class MeetingViewSet(viewsets.ModelViewSet):
         participant.save(update_fields=["role", "updated_at"])
         return Response(MeetingParticipantSerializer(participant).data)
 
+    @action(detail=True, methods=["patch"], url_path=r"participants/(?P<participant_id>[^/.]+)/media")
+    @extend_schema(request=SetParticipantMediaSerializer, responses={200: MeetingParticipantSerializer})
+    def set_participant_media(self, request, pk=None, participant_id=None):
+        meeting = self.get_object()
+        participant = self._get_participant_or_404(meeting, participant_id)
+        serializer = SetParticipantMediaSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        participant = MeetingService().set_participant_media(
+            meeting=meeting,
+            participant=participant,
+            mic_enabled=serializer.validated_data["mic_enabled"],
+            camera_enabled=serializer.validated_data["camera_enabled"],
+        )
+        return Response(MeetingParticipantSerializer(participant).data)
+
+    @action(detail=True, methods=["post"], url_path="sync-permissions")
+    @extend_schema(request=None, responses={204: None})
+    def sync_permissions(self, request, pk=None):
+        meeting = self.get_object()
+        participant = MeetingParticipantRepository().get_for_meeting_and_user(meeting, request.user)
+        if participant is None:
+            raise NotFoundError(detail="You are not a participant of this meeting.")
+        MeetingService().sync_participant_permissions(meeting=meeting, participant=participant)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=["post"])
     @extend_schema(request=None, responses={200: None})
     def mute_all(self, request, pk=None):
@@ -224,6 +263,16 @@ class MeetingViewSet(viewsets.ModelViewSet):
         participant = MeetingService().set_hand_raised(
             meeting=meeting, participant=participant, raised=serializer.validated_data["raised"]
         )
+        return Response(MeetingParticipantSerializer(participant).data)
+
+    @action(detail=True, methods=["post"], url_path="mark-spoken")
+    @extend_schema(request=None, responses={200: MeetingParticipantSerializer})
+    def mark_spoken(self, request, pk=None):
+        meeting = self.get_object()
+        participant = MeetingParticipantRepository().get_for_meeting_and_user(meeting, request.user)
+        if participant is None:
+            raise NotFoundError(detail="You are not a participant of this meeting.")
+        participant = MeetingService().mark_spoken(participant=participant)
         return Response(MeetingParticipantSerializer(participant).data)
 
 

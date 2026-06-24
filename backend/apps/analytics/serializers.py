@@ -23,6 +23,15 @@ class WorkspaceOverviewSerializer(serializers.Serializer):
     top_hosts = TopHostSerializer(many=True)
 
 
+class StudentRosterEntrySerializer(serializers.Serializer):
+    user_id = serializers.UUIDField()
+    name = serializers.CharField()
+    meetings_attended = serializers.IntegerField()
+    total_meetings = serializers.IntegerField()
+    total_minutes = serializers.FloatField()
+    last_attended = serializers.DateTimeField(allow_null=True)
+
+
 class UserStatsSerializer(serializers.Serializer):
     meetings_hosted = serializers.IntegerField()
     meetings_attended = serializers.IntegerField()

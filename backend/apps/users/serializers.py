@@ -2,7 +2,7 @@ import re
 
 from rest_framework import serializers
 
-from .models import PresenceStatus, User
+from .models import AccountType, PresenceStatus, User
 
 PHONE_NUMBER_RE = re.compile(r"^\d{7,15}$")
 
@@ -29,11 +29,12 @@ class UserSerializer(serializers.ModelSerializer):
             "full_name",
             "initials",
             "avatar_url",
+            "account_type",
             "presence_status",
             "timezone",
             "created_at",
         )
-        read_only_fields = ("id", "phone_number", "created_at")
+        read_only_fields = ("id", "phone_number", "account_type", "created_at")
 
     def get_avatar_url(self, obj: User) -> str | None:
         if not obj.avatar:
@@ -73,6 +74,9 @@ class VerifyOtpSerializer(serializers.Serializer):
     phone_number = serializers.CharField()
     code = serializers.CharField(max_length=10)
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
+    account_type = serializers.ChoiceField(
+        choices=AccountType.choices, required=False, allow_blank=True, default=""
+    )
 
     def validate_phone_number(self, value: str) -> str:
         return normalize_phone_number(value)

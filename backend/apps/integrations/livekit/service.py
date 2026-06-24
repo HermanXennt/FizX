@@ -41,9 +41,24 @@ class LiveKitService:
         is_host: bool = False,
         can_publish: bool = True,
         can_subscribe: bool = True,
+        can_publish_camera: bool = True,
+        can_publish_microphone: bool = True,
         metadata: dict | None = None,
         ttl: timedelta = timedelta(hours=6),
     ) -> str:
+        # Best-effort: bakes a previously-set host restriction into the join
+        # token itself so a reconnect/refresh doesn't get a brief unrestricted
+        # window. Correctness doesn't depend on this taking effect - whatever
+        # happens here, the frontend re-applies the same restriction via the
+        # proven runtime update_participant call right after connecting.
+        publish_sources = None
+        if not can_publish_camera or not can_publish_microphone:
+            publish_sources = ["SCREEN_SHARE", "SCREEN_SHARE_AUDIO"]
+            if can_publish_camera:
+                publish_sources.append("CAMERA")
+            if can_publish_microphone:
+                publish_sources.append("MICROPHONE")
+
         grants = lk_api.VideoGrants(
             room_join=True,
             room=room_name,
@@ -51,6 +66,7 @@ class LiveKitService:
             can_publish=can_publish,
             can_subscribe=can_subscribe,
             can_publish_data=True,
+            can_publish_sources=publish_sources,
         )
         token = (
             lk_api.AccessToken(self.api_key, self.api_secret)
@@ -67,7 +83,7 @@ class LiveKitService:
     # Room management
     # ------------------------------------------------------------------
 
-    async def aensure_room(self, *, room_name: str, max_participants: int = 0, empty_timeout: int = 300):
+    async def aensure_room(self, *, room_name: str, max_participants: int = 0, empty_timeout: int = 600):
         async with self._client() as client:
             try:
                 return await client.room.create_room(
@@ -88,6 +104,14 @@ class LiveKitService:
         async with self._client() as client:
             try:
                 return await client.room.delete_room(lk_api.DeleteRoomRequest(room=room_name))
+            except lk_api.TwirpError as exc:
+                if exc.code == "not_found":
+                    # Already gone (e.g. LiveKit's own empty_timeout already
+                    # cleaned it up) - deleting a room that doesn't exist is
+                    # the outcome we wanted, not a failure.
+                    return None
+                logger.exception("LiveKit delete_room failed for %s", room_name)
+                raise ExternalServiceError(detail="Could not delete the video room.") from exc
             except Exception as exc:  # noqa: BLE001
                 logger.exception("LiveKit delete_room failed for %s", room_name)
                 raise ExternalServiceError(detail="Could not delete the video room.") from exc
@@ -154,11 +178,51 @@ class LiveKitService:
     def mute_all_participants(self, **kwargs) -> list:
         return async_to_sync(self.amute_all_participants)(**kwargs)
 
+    async def aupdate_participant_permissions(
+        self, *, room_name: str, identity: str, can_publish_camera: bool = True, can_publish_microphone: bool = True
+    ):
+        """Restricts which track sources a participant may publish, enforced by
+        LiveKit's SFU - not a client-side convention. An empty source list means
+        unrestricted; a non-empty list is an allow-list, so a participant denied
+        CAMERA/MICROPHONE here cannot republish that source from their own
+        client no matter what their own UI lets them click. Screen share is
+        always left allowed - this is about classroom mic/camera control, not a
+        general lockdown.
+        """
+        sources = [lk_api.TrackSource.SCREEN_SHARE, lk_api.TrackSource.SCREEN_SHARE_AUDIO]
+        if can_publish_camera:
+            sources.append(lk_api.TrackSource.CAMERA)
+        if can_publish_microphone:
+            sources.append(lk_api.TrackSource.MICROPHONE)
+
+        async with self._client() as client:
+            try:
+                return await client.room.update_participant(
+                    lk_api.UpdateParticipantRequest(
+                        room=room_name,
+                        identity=identity,
+                        permission=lk_api.ParticipantPermission(
+                            can_publish=True,
+                            can_subscribe=True,
+                            can_publish_data=True,
+                            can_publish_sources=sources,
+                        ),
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("LiveKit update_participant failed for %s/%s", room_name, identity)
+                raise ExternalServiceError(detail="Could not update this participant's media permissions.") from exc
+
+    def update_participant_permissions(self, **kwargs):
+        return async_to_sync(self.aupdate_participant_permissions)(**kwargs)
+
     # ------------------------------------------------------------------
     # Realtime signaling via LiveKit's data channel
     # ------------------------------------------------------------------
 
-    async def asend_data(self, *, room_name: str, payload: dict, topic: str | None = None):
+    async def asend_data(
+        self, *, room_name: str, payload: dict, topic: str | None = None, destination_identities: list[str] | None = None
+    ):
         async with self._client() as client:
             return await client.room.send_data(
                 lk_api.SendDataRequest(
@@ -166,6 +230,7 @@ class LiveKitService:
                     data=json.dumps(payload).encode("utf-8"),
                     kind=lk_api.DataPacket.RELIABLE,
                     topic=topic,
+                    destination_identities=destination_identities or [],
                 )
             )
 
@@ -186,6 +251,11 @@ class LiveKitService:
                     region=settings.AWS_S3_REGION_NAME,
                     bucket=settings.AWS_STORAGE_BUCKET_NAME,
                     endpoint=settings.AWS_S3_ENDPOINT_URL or "",
+                    # A custom endpoint (MinIO, addressed by raw IP here) can't
+                    # do virtual-hosted-style addressing (bucket.endpoint) -
+                    # "bucket.1.2.3.4" isn't a resolvable hostname. Real AWS S3
+                    # (no custom endpoint) keeps the virtual-hosted default.
+                    force_path_style=bool(settings.AWS_S3_ENDPOINT_URL),
                 ),
             )
         return lk_api.EncodedFileOutput(filepath=filepath)

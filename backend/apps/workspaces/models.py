@@ -40,6 +40,17 @@ class Workspace(BaseModel):
         settings.AUTH_USER_MODEL, through="WorkspaceMember", related_name="workspaces"
     )
 
+    # Set once a teacher links one of their WhatsApp groups to this
+    # workspace (see InvitationService.bulk_invite_from_whatsapp) - blank
+    # means "not linked, nothing to sync." whatsapp_linked_by is whose
+    # session the periodic sync task reads from, since sessions are keyed
+    # by teacher id, not by workspace.
+    whatsapp_group_id = models.CharField(max_length=64, blank=True)
+    whatsapp_group_name = models.CharField(max_length=100, blank=True)
+    whatsapp_linked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
     class Meta:
         db_table = "workspaces"
         ordering = ["name"]

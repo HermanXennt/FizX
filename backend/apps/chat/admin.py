@@ -14,7 +14,7 @@ class ChannelAdmin(admin.ModelAdmin):
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
     list_display = ("id", "channel", "sender", "content", "created_at", "deleted_at")
-    search_fields = ("content", "sender__email")
+    search_fields = ("content", "sender__phone_number")
     autocomplete_fields = ["channel", "sender", "reply_to"]
     readonly_fields = ("id", "created_at", "updated_at")
 

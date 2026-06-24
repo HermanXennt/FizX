@@ -12,7 +12,9 @@ class AuthService:
     def request_otp(self, *, phone_number: str) -> None:
         whatsapp_otp.send_otp(phone_number=phone_number)
 
-    def verify_otp(self, *, phone_number: str, code: str, first_name: str = "") -> tuple[User, bool]:
+    def verify_otp(
+        self, *, phone_number: str, code: str, first_name: str = "", account_type: str = ""
+    ) -> tuple[User, bool]:
         """Verifies the WhatsApp OTP and logs in or registers the number.
 
         Returns (user, created) - created is True the first time this phone
@@ -28,8 +30,12 @@ class AuthService:
 
         if not first_name.strip():
             raise ValidationError(detail="first_name is required to create a new account.")
+        if not account_type:
+            raise ValidationError(detail="account_type is required to create a new account.")
 
-        user = User.objects.create_user(phone_number=phone_number, first_name=first_name.strip())
+        user = User.objects.create_user(
+            phone_number=phone_number, first_name=first_name.strip(), account_type=account_type
+        )
         return user, True
 
 

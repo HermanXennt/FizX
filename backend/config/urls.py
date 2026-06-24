@@ -14,6 +14,7 @@ api_v1_patterns = [
     path("recordings/", include("apps.recordings.urls")),
     path("analytics/", include("apps.analytics.urls")),
     path("payments/", include("apps.payments.urls")),
+    path("ai/", include("apps.ai.urls")),
 ]
 
 urlpatterns = [

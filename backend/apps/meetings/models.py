@@ -96,7 +96,12 @@ class MeetingParticipant(BaseModel):
     left_at = models.DateTimeField(null=True, blank=True)
 
     is_muted = models.BooleanField(default=False)
+    camera_disabled = models.BooleanField(default=False)
     hand_raised = models.BooleanField(default=False)
+    # Set once the client detects this participant's mic actually triggered
+    # an active-speaker event - lets the AI assistant answer "who hasn't
+    # spoken yet" with real data instead of guessing.
+    has_spoken = models.BooleanField(default=False)
 
     class Meta:
         db_table = "meeting_participants"

@@ -1,10 +1,15 @@
+import logging
+
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from apps.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
+from apps.core.exceptions import ApplicationError, ConflictError, NotFoundError, PermissionDeniedError, ValidationError
 
 from .models import Invitation, InvitationStatus, Workspace, WorkspaceMember, WorkspaceRole
 from .repositories import InvitationRepository, WorkspaceMemberRepository, WorkspaceRepository
+
+logger = logging.getLogger("apps.workspaces")
 
 
 class WorkspaceService:
@@ -18,6 +23,11 @@ class WorkspaceService:
 
     @transaction.atomic
     def create_workspace(self, *, owner, name: str, description: str = "") -> Workspace:
+        from apps.users.models import AccountType
+
+        if owner.account_type != AccountType.TEACHER:
+            raise PermissionDeniedError(detail="Only teacher accounts can create a group.")
+
         workspace = Workspace.objects.create(name=name, description=description)
         WorkspaceMember.objects.create(workspace=workspace, user=owner, role=WorkspaceRole.OWNER)
         return workspace
@@ -128,6 +138,54 @@ class InvitationService:
             body=f"As {invitation.get_role_display()}",
             data={"invitation_token": invitation.token, "workspace_name": invitation.workspace.name},
         )
+
+    def bulk_invite_from_whatsapp(self, *, workspace: Workspace, phone_numbers: list[str], invited_by) -> dict:
+        """Invites every phone number from a WhatsApp group into this workspace as a
+        student. Used by both the one-time "Import as students" action and the
+        periodic sync task that keeps re-checking a linked group - the dedup here
+        (skip messaging if a pending invite already existed) is what keeps the
+        periodic task from re-sending the WhatsApp ping on every run."""
+        from rest_framework.exceptions import ValidationError as DRFValidationError
+
+        from apps.integrations.whatsapp_otp import service as whatsapp_otp
+        from apps.users.repositories import UserRepository
+        from apps.users.serializers import normalize_phone_number
+
+        added, invited, skipped = 0, 0, 0
+        for raw_phone in phone_numbers:
+            try:
+                phone = normalize_phone_number(raw_phone)
+            except DRFValidationError:
+                skipped += 1
+                continue
+            if phone == invited_by.phone_number:
+                continue
+
+            already_pending = self.invitation_repo.pending_for_phone_number(workspace, phone) is not None
+
+            try:
+                self.invite(workspace=workspace, phone_number=phone, role=WorkspaceRole.MEMBER, invited_by=invited_by)
+            except ConflictError:
+                skipped += 1
+                continue
+
+            if UserRepository().get_by_phone_number(phone) is None:
+                if not already_pending:
+                    try:
+                        whatsapp_otp.send_via_otp_service(
+                            phone_number=phone,
+                            text=(
+                                f'{invited_by.full_name} added you to "{workspace.name}" on FizX. '
+                                f"Join: {settings.FRONTEND_URL}/login"
+                            ),
+                        )
+                    except ApplicationError:
+                        logger.warning("Failed to send WhatsApp invite message to %s", phone)
+                invited += 1
+            else:
+                added += 1
+
+        return {"added": added, "invited": invited, "skipped": skipped}
 
     def revoke(self, *, invitation: Invitation) -> Invitation:
         if invitation.status != InvitationStatus.PENDING:

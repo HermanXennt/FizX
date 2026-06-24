@@ -1,11 +1,18 @@
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..serializers import AvatarUploadSerializer, PresenceUpdateSerializer, UpdateProfileSerializer, UserSerializer
+from ..repositories import UserRepository
+from ..serializers import (
+    AvatarUploadSerializer,
+    PresenceUpdateSerializer,
+    PublicUserSerializer,
+    UpdateProfileSerializer,
+    UserSerializer,
+)
 from ..services import UserService
 
 
@@ -50,3 +57,18 @@ class PresenceView(APIView):
         serializer.is_valid(raise_exception=True)
         user = UserService().update_presence(user=request.user, **serializer.validated_data)
         return Response(UserSerializer(user, context={"request": request}).data)
+
+
+class UserSearchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        parameters=[OpenApiParameter("q", str, description="Name or phone number to search for.")],
+        responses={200: PublicUserSerializer(many=True)},
+    )
+    def get(self, request):
+        query = request.query_params.get("q", "").strip()
+        if not query:
+            return Response([])
+        users = UserRepository().search_contacts(requester=request.user, query=query)
+        return Response(PublicUserSerializer(users, many=True, context={"request": request}).data)

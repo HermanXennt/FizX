@@ -7,7 +7,12 @@ from rest_framework.views import APIView
 from apps.core.exceptions import PermissionDeniedError
 from apps.workspaces.repositories import WorkspaceMemberRepository, WorkspaceRepository
 
-from .serializers import LogEventSerializer, UserStatsSerializer, WorkspaceOverviewSerializer
+from .serializers import (
+    LogEventSerializer,
+    StudentRosterEntrySerializer,
+    UserStatsSerializer,
+    WorkspaceOverviewSerializer,
+)
 from .services import AnalyticsEventService, UserAnalyticsService, WorkspaceAnalyticsService
 
 
@@ -21,6 +26,21 @@ class WorkspaceOverviewView(APIView):
             raise PermissionDeniedError(detail="You are not a member of this workspace.")
         data = WorkspaceAnalyticsService().get_overview(workspace=workspace)
         return Response(WorkspaceOverviewSerializer(data).data)
+
+
+class WorkspaceStudentRosterView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses={200: StudentRosterEntrySerializer(many=True)})
+    def get(self, request, workspace_id):
+        from apps.workspaces.models import WorkspaceRole
+
+        workspace = WorkspaceRepository().get_by_id_or_raise(workspace_id)
+        membership = WorkspaceMemberRepository().get_membership(workspace, request.user)
+        if membership is None or membership.role not in (WorkspaceRole.OWNER, WorkspaceRole.ADMIN):
+            raise PermissionDeniedError(detail="Only a workspace teacher can view the student roster.")
+        data = WorkspaceAnalyticsService().get_student_roster(workspace=workspace)
+        return Response(StudentRosterEntrySerializer(data, many=True).data)
 
 
 class MyStatsView(APIView):

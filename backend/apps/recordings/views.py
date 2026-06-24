@@ -78,15 +78,22 @@ class StopRecordingView(APIView):
 
 
 class LiveKitEgressWebhookView(APIView):
-    """Receives `egress_started` / `egress_updated` / `egress_ended` webhooks from the
-    LiveKit Egress service and keeps MeetingRecording rows in sync. Authenticated via
-    LiveKit's own Authorization-header JWT signature, not Django session/JWT auth."""
+    """Receives every webhook LiveKit is configured to send (there's a single
+    configured URL for all event types, not one per type) - `egress_started`/
+    `egress_updated`/`egress_ended` keep MeetingRecording rows in sync,
+    `room_finished` catches a room LiveKit closed on its own (its
+    empty_timeout elapsing with nobody in it) so the Meeting row doesn't
+    stay "live" forever just because nobody clicked "End meeting".
+    Authenticated via LiveKit's own Authorization-header JWT signature, not
+    Django session/JWT auth."""
 
     permission_classes = [AllowAny]
     authentication_classes = []
 
     @extend_schema(request=None, responses={200: None})
     def post(self, request):
+        from apps.meetings.services import MeetingService
+
         auth_token = request.headers.get("Authorization", "")
         try:
             event = livekit_service.verify_webhook(body=request.body.decode("utf-8"), auth_token=auth_token)
@@ -98,5 +105,10 @@ class LiveKitEgressWebhookView(APIView):
             recording = RecordingService().apply_egress_webhook(egress_info=event.egress_info)
             if recording is None:
                 logger.info("No matching MeetingRecording for egress %s", event.egress_info.egress_id)
+
+        if event.event == "room_finished" and event.room:
+            meeting = MeetingService().end_meeting_from_webhook(room_name=event.room.name)
+            if meeting:
+                logger.info("Meeting %s auto-ended - LiveKit closed its empty room", meeting.id)
 
         return Response({"received": True})

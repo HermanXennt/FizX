@@ -46,6 +46,9 @@ class Message(BaseModel):
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="chat_messages")
     content = models.TextField(blank=True)
     attachment = models.FileField(upload_to=message_attachment_path, null=True, blank=True)
+    attachment_name = models.CharField(max_length=255, blank=True)
+    attachment_size = models.PositiveIntegerField(null=True, blank=True)
+    attachment_content_type = models.CharField(max_length=100, blank=True)
     reply_to = models.ForeignKey(
         "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="replies"
     )

@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.utils import timezone
 from livekit import api as lk_api
 
@@ -56,7 +57,17 @@ class RecordingService:
 
         if egress_info.file_results:
             file_result = egress_info.file_results[0]
-            recording.file_url = file_result.location or file_result.filename
+            if settings.AWS_S3_ENDPOINT_URL:
+                # LiveKit's reported `location` assumes virtual-hosted-style
+                # https regardless of the endpoint scheme it was actually
+                # given - wrong for a plain-http custom S3 endpoint like
+                # MinIO. We already know the real bucket/key, so build the
+                # URL from our own settings instead of trusting it.
+                recording.file_url = (
+                    f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_result.filename}"
+                )
+            else:
+                recording.file_url = file_result.location or file_result.filename
             if file_result.duration:
                 recording.duration_seconds = int(file_result.duration // 1_000_000_000)
             recording.size_bytes = file_result.size or None

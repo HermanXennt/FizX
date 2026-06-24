@@ -55,6 +55,11 @@ class PresenceStatus(models.TextChoices):
     OFFLINE = "offline", "Offline"
 
 
+class AccountType(models.TextChoices):
+    TEACHER = "teacher", "Teacher"
+    STUDENT = "student", "Student"
+
+
 class User(BaseModel, AbstractBaseUser, PermissionsMixin):
     # Digits only, no leading "+" - the canonical form both the WhatsApp OTP
     # service and Django use, so phone numbers never need reformatting at
@@ -66,6 +71,11 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+
+    # Fixed at registration, not a per-workspace thing - see AccountType.
+    # Determines which dashboard/admin experience the user gets and whether
+    # they're allowed to create workspaces at all (see WorkspaceService).
+    account_type = models.CharField(max_length=10, choices=AccountType.choices, default=AccountType.STUDENT)
 
     presence_status = models.CharField(
         max_length=20, choices=PresenceStatus.choices, default=PresenceStatus.OFFLINE

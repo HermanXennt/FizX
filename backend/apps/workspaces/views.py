@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.exceptions import NotFoundError, ValidationError
+from apps.integrations.whatsapp_otp import service as whatsapp_otp
 
 from .permissions import IsWorkspaceAdminOrOwner, IsWorkspaceMember, IsWorkspaceOwner
 from .repositories import InvitationRepository, WorkspaceMemberRepository, WorkspaceRepository
@@ -14,6 +15,7 @@ from .serializers import (
     ChangeMemberRoleSerializer,
     CreateInvitationSerializer,
     CreateWorkspaceSerializer,
+    ImportWhatsAppGroupSerializer,
     InvitationSerializer,
     WorkspaceMemberSerializer,
     WorkspaceSerializer,
@@ -40,6 +42,8 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             "invitations",
             "member_detail",
             "revoke_invitation",
+            "import_whatsapp_group",
+            "unlink_whatsapp_group",
         ):
             return [IsAuthenticated(), IsWorkspaceAdminOrOwner()]
         if self.action in ("retrieve", "members", "leave"):
@@ -125,6 +129,39 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             raise NotFoundError(detail="This invitation does not belong to this workspace.")
         InvitationService().revoke(invitation=invitation)
         return Response({"detail": "Invitation revoked."})
+
+    @action(detail=True, methods=["post"], url_path="import-whatsapp-group")
+    @extend_schema(request=ImportWhatsAppGroupSerializer, responses={200: None})
+    def import_whatsapp_group(self, request, pk=None):
+        workspace = self.get_object()
+        serializer = ImportWhatsAppGroupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        group_id = serializer.validated_data["group_id"]
+        teacher_id = str(request.user.id)
+
+        phone_numbers = whatsapp_otp.list_group_participants(teacher_id=teacher_id, group_id=group_id)
+        result = InvitationService().bulk_invite_from_whatsapp(
+            workspace=workspace, phone_numbers=phone_numbers, invited_by=request.user
+        )
+
+        # Persists the link so the periodic sync task (apps.workspaces.tasks)
+        # keeps re-checking this group from here on, not just this one time.
+        workspace.whatsapp_group_id = group_id
+        workspace.whatsapp_group_name = serializer.validated_data["group_name"]
+        workspace.whatsapp_linked_by = request.user
+        workspace.save(update_fields=["whatsapp_group_id", "whatsapp_group_name", "whatsapp_linked_by", "updated_at"])
+
+        return Response(result)
+
+    @action(detail=True, methods=["post"], url_path="unlink-whatsapp-group")
+    @extend_schema(request=None, responses={204: None})
+    def unlink_whatsapp_group(self, request, pk=None):
+        workspace = self.get_object()
+        workspace.whatsapp_group_id = ""
+        workspace.whatsapp_group_name = ""
+        workspace.whatsapp_linked_by = None
+        workspace.save(update_fields=["whatsapp_group_id", "whatsapp_group_name", "whatsapp_linked_by", "updated_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class InvitationAcceptView(APIView):

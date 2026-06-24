@@ -22,9 +22,11 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "config",
             "member_count",
             "my_role",
+            "whatsapp_group_id",
+            "whatsapp_group_name",
             "created_at",
         )
-        read_only_fields = ("id", "slug", "plan", "created_at")
+        read_only_fields = ("id", "slug", "plan", "whatsapp_group_id", "whatsapp_group_name", "created_at")
 
     def get_avatar_url(self, obj: Workspace) -> str | None:
         if not obj.avatar:
@@ -82,3 +84,8 @@ class CreateInvitationSerializer(serializers.Serializer):
 
     def validate_phone_number(self, value: str) -> str:
         return normalize_phone_number(value)
+
+
+class ImportWhatsAppGroupSerializer(serializers.Serializer):
+    group_id = serializers.CharField()
+    group_name = serializers.CharField(required=False, allow_blank=True, default="")

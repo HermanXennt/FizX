@@ -43,7 +43,7 @@ class WorkspaceAnalyticsService:
         )
 
         top_hosts = list(
-            meetings.values("host__id", "host__first_name", "host__last_name", "host__email")
+            meetings.values("host__id", "host__first_name", "host__last_name", "host__phone_number")
             .annotate(meeting_count=Count("id"))
             .order_by("-meeting_count")[:5]
         )
@@ -62,12 +62,45 @@ class WorkspaceAnalyticsService:
                 {
                     "user_id": row["host__id"],
                     "name": f"{row['host__first_name']} {row['host__last_name']}".strip()
-                    or row["host__email"],
+                    or row["host__phone_number"],
                     "meeting_count": row["meeting_count"],
                 }
                 for row in top_hosts
             ],
         }
+
+    def get_student_roster(self, *, workspace, since_days: int = 30) -> list[dict]:
+        """Per-student attendance summary for a teacher's workspace - the
+        "needs attention" signal (zero/low attendance) a teacher actually
+        needs, which the meeting-count/duration-only workspace overview above
+        doesn't break down per person."""
+        from apps.workspaces.models import WorkspaceMember, WorkspaceRole
+
+        since = timezone.now() - timedelta(days=since_days)
+        total_meetings = Meeting.objects.filter(workspace=workspace, actual_start__gte=since).count()
+        members = WorkspaceMember.objects.filter(workspace=workspace, role=WorkspaceRole.MEMBER).select_related("user")
+
+        roster = []
+        for member in members:
+            participations = MeetingParticipant.objects.filter(
+                user=member.user, meeting__workspace=workspace, joined_at__gte=since, joined_at__isnull=False
+            )
+            attended_count = participations.values("meeting_id").distinct().count()
+            duration = participations.annotate(duration=PARTICIPANT_DURATION).aggregate(total=Sum("duration"))["total"]
+            last_attended = participations.order_by("-joined_at").values_list("joined_at", flat=True).first()
+
+            roster.append(
+                {
+                    "user_id": member.user.id,
+                    "name": member.user.full_name,
+                    "meetings_attended": attended_count,
+                    "total_meetings": total_meetings,
+                    "total_minutes": _minutes(duration),
+                    "last_attended": last_attended,
+                }
+            )
+
+        return sorted(roster, key=lambda r: r["meetings_attended"])
 
 
 class UserAnalyticsService:

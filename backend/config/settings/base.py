@@ -57,6 +57,7 @@ LOCAL_APPS = [
     "apps.recordings",
     "apps.analytics",
     "apps.payments",
+    "apps.ai",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -260,6 +261,18 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.meetings.tasks.send_meeting_reminders",
         "schedule": 300.0,
     },
+    "auto-start-scheduled-meetings": {
+        "task": "apps.meetings.tasks.auto_start_scheduled_meetings",
+        "schedule": 60.0,
+    },
+    "auto-end-overdue-meetings": {
+        "task": "apps.meetings.tasks.auto_end_overdue_meetings",
+        "schedule": 60.0,
+    },
+    "sync-whatsapp-groups": {
+        "task": "apps.workspaces.tasks.sync_whatsapp_groups",
+        "schedule": 300.0,
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -296,6 +309,13 @@ STRIPE_PUBLIC_KEY = env("STRIPE_PUBLIC_KEY", default="")
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
 STRIPE_PRICE_ID_PRO = env("STRIPE_PRICE_ID_PRO", default="")
+
+# ---------------------------------------------------------------------------
+# OpenAI (AI assistant)
+# ---------------------------------------------------------------------------
+
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini")
 
 # ---------------------------------------------------------------------------
 # Logging

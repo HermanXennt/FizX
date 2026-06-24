@@ -57,6 +57,10 @@ class CreateInstantMeetingSerializer(serializers.Serializer):
     )
 
 
+class InviteToMeetingSerializer(serializers.Serializer):
+    user_ids = serializers.ListField(child=serializers.UUIDField(), max_length=50)
+
+
 class ScheduleMeetingSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=200)
     description = serializers.CharField(required=False, allow_blank=True, default="")
@@ -88,7 +92,18 @@ class MeetingParticipantSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MeetingParticipant
-        fields = ("id", "user", "role", "status", "joined_at", "left_at", "is_muted", "hand_raised")
+        fields = (
+            "id",
+            "user",
+            "role",
+            "status",
+            "joined_at",
+            "left_at",
+            "is_muted",
+            "camera_disabled",
+            "hand_raised",
+            "has_spoken",
+        )
         read_only_fields = fields
 
 
@@ -102,6 +117,11 @@ class JoinMeetingResponseSerializer(serializers.Serializer):
 
 class SetHandRaisedSerializer(serializers.Serializer):
     raised = serializers.BooleanField()
+
+
+class SetParticipantMediaSerializer(serializers.Serializer):
+    mic_enabled = serializers.BooleanField(required=False, default=None, allow_null=True)
+    camera_enabled = serializers.BooleanField(required=False, default=None, allow_null=True)
 
 
 class ChangeParticipantRoleSerializer(serializers.Serializer):
