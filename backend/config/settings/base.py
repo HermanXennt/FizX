@@ -198,9 +198,16 @@ if AWS_STORAGE_BUCKET_NAME:
     # file. This is the same "externally-reachable base URL" the storage
     # backend itself uses, computed once here instead of duplicating the
     # custom-domain-vs-endpoint fallback logic at the call site.
-    PUBLIC_S3_BASE_URL = (
-        f"{AWS_S3_URL_PROTOCOL}//{AWS_S3_CUSTOM_DOMAIN}" if AWS_S3_CUSTOM_DOMAIN else AWS_S3_ENDPOINT_URL
-    )
+    #
+    # AWS_S3_CUSTOM_DOMAIN may carry a bucket path suffix for MinIO path-style
+    # URLs (e.g. "51.20.85.58:9000/fizx-recordings") so that django-storages
+    # produces correct full URLs without presigned query strings. Strip the
+    # path here so recordings/services.py can safely append "/{bucket}/{file}".
+    if AWS_S3_CUSTOM_DOMAIN:
+        _public_host = AWS_S3_CUSTOM_DOMAIN.split("/")[0]
+        PUBLIC_S3_BASE_URL = f"{AWS_S3_URL_PROTOCOL}//{_public_host}"
+    else:
+        PUBLIC_S3_BASE_URL = AWS_S3_ENDPOINT_URL
 else:
     STORAGES = {
         "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
